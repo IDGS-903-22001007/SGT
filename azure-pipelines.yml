@@ -1,0 +1,33 @@
+# Pipeline para proyecto Python
+# Construye y ejecuta pruebas automáticamente desde GitHub
+
+trigger:
+- main  # ejecuta el pipeline cuando haces push a la rama 'main'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+# 1️⃣ Configurar la versión de Python
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.11'
+  displayName: 'Configurar Python 3.11'
+
+# 2️⃣ Instalar dependencias
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+  displayName: 'Instalar dependencias'
+
+# 3️⃣ Ejecutar pruebas
+- script: |
+    pytest --maxfail=1 --disable-warnings -q
+  displayName: 'Ejecutar pruebas con pytest'
+
+# 4️⃣ (Opcional) Generar artefacto si tu proyecto produce algo (ej. build, .zip, etc.)
+# - task: PublishBuildArtifacts@1
+#   inputs:
+#     pathToPublish: 'dist'
+#     artifactName: 'build'
+#   displayName: 'Publicar artefacto del build'
