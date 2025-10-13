@@ -1,38 +1,77 @@
-# Pipeline para proyecto Python
-# Construye y ejecuta pruebas automáticamente desde GitHub
+# Pipeline para proyecto Python - explicado por etapas
 
 trigger:
-- main  # ejecuta el pipeline cuando haces push a la rama 'main'
+- main  # Se ejecuta en cada push a la rama main
 
 pool:
   name: 'AgenteLocal'
 
-steps:
-# 1️⃣ Configurar la versión de Python
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.11'
-  displayName: 'Configurar Python 3.11'
+stages:
 
-# 2️⃣ (Opcional) Verificar archivos en el repo
-- script: dir $(Build.SourcesDirectory)
-  displayName: 'Ver archivos en el repo'
+# =====================================================
+# 1️⃣ Etapa: Configuración de Python
+# =====================================================
+- stage: ConfigurarPython
+  displayName: 'Etapa 1: Configurar Python'
+  jobs:
+  - job: ConfigurarPythonJob
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.11'
+      displayName: 'Configurar Python 3.11'
 
-# 3️⃣ Instalar dependencias
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r $(Build.SourcesDirectory)/requirements.txt
-  displayName: 'Instalar dependencias'
+# =====================================================
+# 2️⃣ Etapa: Verificar archivos del repositorio (opcional)
+# =====================================================
+- stage: VerificarArchivos
+  displayName: 'Etapa 2: Verificar archivos en el repo'
+  jobs:
+  - job: VerificarArchivosJob
+    steps:
+    - script: dir $(Build.SourcesDirectory)
+      displayName: 'Listar archivos del repositorio'
 
-# 4️⃣ Ejecutar pruebas
-- script: |
-    cd $(Build.SourcesDirectory)
-    pytest --maxfail=1 --disable-warnings -q
-  displayName: 'Ejecutar pruebas con pytest'
+# =====================================================
+# 3️⃣ Etapa: Instalar dependencias en virtualenv
+# =====================================================
+- stage: InstalarDependencias
+  displayName: 'Etapa 3: Instalar dependencias'
+  jobs:
+  - job: InstalarDependenciasJob
+    steps:
+    - script: |
+        cd $(Build.SourcesDirectory)
+        python -m venv venv
+        venv\Scripts\activate
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: 'Crear virtualenv e instalar dependencias'
 
-# 5️⃣ (Opcional) Generar artefacto si tu proyecto produce algo (ej. build, .zip, etc.)
-# - task: PublishBuildArtifacts@1
-#   inputs:
-#     pathToPublish: 'dist'
-#     artifactName: 'build'
-#   displayName: 'Publicar artefacto del build'
+# =====================================================
+# 4️⃣ Etapa: Ejecutar pruebas con pytest
+# =====================================================
+- stage: EjecutarPruebas
+  displayName: 'Etapa 4: Ejecutar pruebas'
+  jobs:
+  - job: EjecutarPruebasJob
+    steps:
+    - script: |
+        cd $(Build.SourcesDirectory)
+        venv\Scripts\activate
+        pytest tests --maxfail=1 --disable-warnings -q
+      displayName: 'Ejecutar pruebas con pytest'
+
+# =====================================================
+# 5️⃣ Etapa: Publicar artefactos (opcional)
+# =====================================================
+- stage: PublicarArtefactos
+  displayName: 'Etapa 5: Publicar artefactos'
+  jobs:
+  - job: PublicarArtefactosJob
+    steps:
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'dist'
+        artifactName: 'build'
+      displayName: 'Publicar artefacto del build'
