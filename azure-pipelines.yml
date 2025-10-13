@@ -5,7 +5,7 @@ trigger:
 - main  # ejecuta el pipeline cuando haces push a la rama 'main'
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'AgenteLocal'
 
 steps:
 # 1️⃣ Configurar la versión de Python
