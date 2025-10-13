@@ -14,18 +14,23 @@ steps:
     versionSpec: '3.11'
   displayName: 'Configurar Python 3.11'
 
-# 2️⃣ Instalar dependencias
+# 2️⃣ (Opcional) Verificar archivos en el repo
+- script: dir $(Build.SourcesDirectory)
+  displayName: 'Ver archivos en el repo'
+
+# 3️⃣ Instalar dependencias
 - script: |
     python -m pip install --upgrade pip
-    pip install -r requirements.txt
+    pip install -r $(Build.SourcesDirectory)/requirements.txt
   displayName: 'Instalar dependencias'
 
-# 3️⃣ Ejecutar pruebas
+# 4️⃣ Ejecutar pruebas
 - script: |
+    cd $(Build.SourcesDirectory)
     pytest --maxfail=1 --disable-warnings -q
   displayName: 'Ejecutar pruebas con pytest'
 
-# 4️⃣ (Opcional) Generar artefacto si tu proyecto produce algo (ej. build, .zip, etc.)
+# 5️⃣ (Opcional) Generar artefacto si tu proyecto produce algo (ej. build, .zip, etc.)
 # - task: PublishBuildArtifacts@1
 #   inputs:
 #     pathToPublish: 'dist'
