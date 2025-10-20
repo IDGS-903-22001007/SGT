@@ -60,22 +60,64 @@ stages:
   - job: EjecutarPruebasJob
     steps:
     - script: |
+        # Asume que el venv fue creado e instalado en el stage anterior
+        # Aquí deberías activar el venv en tu agente o usar el entorno del agente para pytest
+        # Si usas un agente autoalojado (como 'AgenteLocal'), el venv se mantiene entre etapas.
+        # Si usas un agente hospedado por Azure, necesitarías recrear/reusar el venv.
+        # Asumiendo que el venv es accesible:
         cd $(Build.SourcesDirectory)
         venv\Scripts\activate
         pytest test --maxfail=1 --disable-warnings -q
       displayName: 'Ejecutar pruebas con pytest'
 
 # =====================================================
-# 5️⃣ Etapa: Publicar artefactos (opcional)
+# 5️⃣ Etapa: Publicar artefactos
+# *DEBE* ejecutarse antes del despliegue.
 # =====================================================
 - stage: PublicarArtefactos
   displayName: 'Etapa 5: Publicar artefactos'
-  condition: succeeded()  # Solo si todas las etapas anteriores fueron exitosas
+  dependsOn: EjecutarPruebas # Solo si las pruebas fueron exitosas
+  condition: succeeded()
   jobs:
   - job: PublicarArtefactosJob
     steps:
     - task: PublishBuildArtifacts@1
       inputs:
-        pathToPublish: 'dist'
-        artifactName: 'build'
-      displayName: 'Publicar artefacto del build'
+        pathToPublish: 'dist' # Asegúrate de que este directorio existe y contiene el código a desplegar
+        artifactName: 'build-sprint-1'
+      displayName: 'Publicar artefacto del build (build-sprint-1)'
+
+# =====================================================
+# 6️⃣ Etapa: Release Sprint 1 (Despliegue)
+# =====================================================
+- stage: ReleaseSprint1
+  displayName: 'Etapa 6: Release Sprint 1 – Entregable funcional'
+  dependsOn: PublicarArtefactos # Depende del éxito de la publicación del artefacto
+  condition: succeeded()
+  jobs:
+  - deployment: DeploySprint1
+    displayName: 'Despliegue Sprint 1'
+    # Configuración de environment, clave para despliegues modernos
+    environment: 'Releases - sprint 1'  # 👈 Usa el nombre exacto del Environment que creaste en Azure DevOps
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          # ---
+          # PASO CLAVE: Si necesitas desplegar a Azure App Service (ejemplo):
+          # Descomenta y configura esta tarea si estás desplegando la carpeta 'dist'
+          # - task: AzureWebApp@1
+          #   displayName: 'Desplegar SGT a Azure App Service'
+          #   inputs:
+          #     azureSubscription: 'Nombre-De-Tu-Service-Connection'
+          #     appName: 'nombre-de-tu-app-service'
+          #     package: '$(Pipeline.Workspace)/build-sprint-1/dist' # Ajusta la ruta del artefacto descargado
+          # ---
+          
+          # Tarea de demostración (mantengo la tuya original como nota)
+          - script: |
+              echo "=== Release del Sprint 1 ==="
+              echo "Historia de Usuario: US001 – Inicio de sesión"
+              echo "Entregable funcional listo para revisión del Product Owner"
+              echo "============================="
+            displayName: 'Mensaje de Éxito del Release Sprint 1'
