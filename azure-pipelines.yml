@@ -35,11 +35,13 @@ stages:
 
     # --- Instalar dependencias ---
     - script: |
+        echo "Instalando dependencias..."
         pip install -r requirements.txt
       displayName: '📦 Instalar dependencias Flask y Gunicorn'
 
-    # --- Ejecutar pruebas (opcional) ---
+    # --- Ejecutar pruebas (si existen) ---
     - script: |
+        echo "Ejecutando pruebas..."
         pytest test --junitxml=results.xml || echo "Sin pruebas definidas."
       displayName: '🧪 Ejecutar pruebas unitarias'
 
@@ -77,7 +79,13 @@ stages:
         deploy:
           steps:
 
-          # ✅ CORRECCIÓN: Descargar artefacto en carpeta única por ejecución
+          # 🔹 Limpiar directorios previos
+          - script: |
+              echo "🧹 Limpiando workspace previo..."
+              rd /s /q "$(Pipeline.Workspace)\artifacts_*" 2>nul || echo "Nada que limpiar"
+            displayName: '🧹 Limpiar artefactos antiguos'
+
+          # 🔹 Descargar artefactos del build actual
           - task: DownloadPipelineArtifact@2
             displayName: '⬇️ Descargar artefactos del build actual'
             inputs:
