@@ -4,8 +4,8 @@
 # Objetivo: Despliegue de login.html con trazabilidad
 #
 # 🔥 CORRECCIÓN APLICADA: Se añadió 'workspace: clean: all' al job de
-#    despliegue para resolver el error 'System.IO.IOException: Cannot create...'
-#    en el agente local.
+#    despliegue y se corrigió el 'startupCommand' para apuntar
+#    al archivo 'main.py' dentro de la carpeta 'sgt'.
 # =====================================================
 
 trigger:
@@ -64,7 +64,7 @@ stages:
     - task: PublishBuildArtifacts@1
       displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
       inputs:
-        pathToPublish: '$(AppSourceDir)/sgt'  
+        pathToPublish: '$(AppSourceDir)/sgt'  # Publica la carpeta 'sgt'
         artifactName: '$(ArtifactName)'
 
 # =====================================================
@@ -79,8 +79,6 @@ stages:
   - deployment: DeployFunctionalIncrement
     displayName: 'Job: Despliegue a App Service'
     
-    # ✅ CORRECCIÓN CLAVE: Limpiar el espacio de trabajo antes de descargar
-    #    artefactos para evitar el error de System.IO.IOException.
     workspace:
       clean: all
     
@@ -95,7 +93,6 @@ stages:
             displayName: 'Descargar Artefacto de Código'
             inputs:
               artifactName: '$(ArtifactName)'
-              # El directorio se limpiará, por lo que esta ruta es segura.
               path: '$(Pipeline.Workspace)/$(ArtifactName)' 
 
           - task: AzureWebApp@1
@@ -103,9 +100,12 @@ stages:
             inputs:
               azureSubscription: '$(ServiceConnectionName)'  
               appName: '$(AppServiceName)'   
-              appType: webApp # CORRECCIÓN PREVIA: Especificar el tipo de App Service.
+              appType: webApp
+              # El paquete contiene la carpeta 'sgt', por lo que el App Service
+              # tendrá una estructura con /home/site/wwwroot/sgt-deploy-package/sgt/...
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 main:app'
+              # 🚀 CAMBIO CLAVE: Gunicorn ahora busca el archivo 'main' dentro de la carpeta 'sgt'
+              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
           
           - script: |
               echo "✅ Pipeline CI/CD completado exitosamente."
