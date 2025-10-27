@@ -1,24 +1,19 @@
 # =====================================================
-# 📦 Pipeline para HTML Estático (Usando Flask como Servidor)
-# Flujo: CI (Build/Test) -> CD (Deploy)
-# Objetivo: Despliegue de login.html con trazabilidad
+# 📦 Pipeline para HTML Estático (FINAL)
 # =====================================================
 
 trigger:
 - main
 
-# ⚠️ Seguimos usando el agente local
 pool:
   name: 'AgenteLocal'
 
-# Variables del Proyecto
 variables:
   AppSourceDir: '$(Build.SourcesDirectory)'
   ArtifactName: 'sgt-deploy-package'
-  
-  # VALORES DE AZURE CONFIRMADOS
   ServiceConnectionName: 'AZ-Conexion-SGT'        
   AppServiceName: 'sgt-app-integrated-2025'       
+  PythonVersion: '3.11' # Agregada la versión de Python
 
 stages:
 
@@ -32,19 +27,15 @@ stages:
     displayName: 'Job: Preparación y Pruebas'
     steps:
     
-    # --- 1. Configuración de Python (Necesario para Gunicorn y Pruebas) ---
     - task: UsePythonVersion@0
-      displayName: 'Configurar Python 3.11'
+      displayName: 'Configurar Python $(PythonVersion)'
       inputs:
-        versionSpec: '3.11'
+        versionSpec: '$(PythonVersion)'
 
-    # --- 2. Instalación de Dependencias (Flask y Gunicorn) ---
-    # Asumiendo que requirements.txt tiene flask y gunicorn
     - script: |
         pip install -r requirements.txt
       displayName: 'Instalar Flask y Gunicorn'
       
-    # --- 3. Ejecutar Pruebas (Actividad 14) ---
     - script: |
         pytest test --junitxml=results.xml
       displayName: 'Ejecutar Pruebas de Integración Continua'
@@ -59,9 +50,10 @@ stages:
         
     # --- 4. Publicar Artefactos ---
     - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
+      displayName: 'Publicar Artefacto del Build (Carpeta Raíz)'
       inputs:
-        pathToPublish: '$(AppSourceDir)/sgt'  
+        # 🔥 CAMBIO CLAVE: Publicamos desde la raíz, no desde /sgt
+        pathToPublish: '$(AppSourceDir)'  
         artifactName: '$(ArtifactName)'
 
 # =====================================================
@@ -94,10 +86,9 @@ stages:
             inputs:
               azureSubscription: '$(ServiceConnectionName)'  
               appName: '$(AppServiceName)'   
-              # 🔥 CORRECCIÓN: Agregar appType para resolver el error de propiedad faltante
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 main:app'
+              # 🔥 startupCommand se queda vacío para que Azure use el estándar: gunicorn --bind=0.0.0.0 --workers=1 main:app
           
           - script: |
               echo "✅ Pipeline CI/CD completado exitosamente."
