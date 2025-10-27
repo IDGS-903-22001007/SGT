@@ -24,3 +24,7 @@ Desarrollar un sistema web que permita gestionar eficientemente los recursos del
 
 
 Prueba de Trazabilidad 10-26-2025
+
+
+
+prueba de testing 27/10/2025
