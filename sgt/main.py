@@ -1,14 +1,14 @@
-from flask import Flask, render_template
+from flask import Flask, send_from_directory
 
-# 🔥 CORRECCIÓN CLAVE: Le decimos a Flask que busque archivos HTML (plantillas)
-# en el mismo directorio donde está main.py (que es la carpeta /sgt)
-app = Flask(__name__, template_folder='.')
+# Configuramos la app sin ruta de plantillas para que sirva archivos estáticos
+app = Flask(__name__)
 
+# Definimos la ruta de inicio ('/')
 @app.route('/')
 def index():
-    # Renderiza el archivo login.html que está en la misma carpeta que main.py
-    return render_template('login.html')
+    # Usamos send_from_directory para servir el archivo login.html
+    # El punto ('.') es el directorio actual (que será /home/site/wwwroot/sgt después del despliegue)
+    return send_from_directory('.', 'login.html')
 
 if __name__ == '__main__':
-    # Este bloque es solo para pruebas locales
     app.run(debug=True)
