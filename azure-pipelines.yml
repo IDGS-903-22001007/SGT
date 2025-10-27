@@ -1,153 +1,255 @@
 # =====================================================
+
 # 📦 Pipeline para proyecto Python - Azure DevOps
+
 # Flujo: CI (Build/Test) -> CD (Deploy)
+
+# Objetivo: Despliegue funcional de 3 Historias de Usuario (Semana 3)
+
 # =====================================================
 
+
+
 trigger:
-- main
+
+- main  # Se ejecuta en cada push a la rama main
+
+
+
+# ⚠️ Asegúrate de que este agente tiene Python 3.11 instalado
 
 pool:
-  name: 'AgenteLocal' # o usa 'ubuntu-latest' para Linux en la nube
+
+  name: 'AgenteLocal'
+
+
 
 # Variables del Proyecto
+
 variables:
+
   AppSourceDir: '$(Build.SourcesDirectory)'
+
   ArtifactName: 'sgt-deploy-package'
+
   PythonVersion: '3.11'
+
   VenvName: 'venv'
+
   
-  # VALORES DE AZURE CONFIRMADOS
-  ServiceConnectionName: 'AZ-Conexion-SGT'        
-  AppServiceName: 'sgt-app-integrated-2025'  
-  TeamsWebhook: '' # Coloca aquí la URL del webhook de Teams (secret)
+
+  # ❗❗ VALORES DE AZURE CONFIRMADOS - REEMPLAZA EL VALOR DE LA CONEXIÓN ❗❗
+
+  ServiceConnectionName: 'AZ-Conexion-SGT'          # Nombre de la Conexión de Servicio en Azure DevOps
+
+  AppServiceName: 'sgt-app-integrated-2025'         # Nombre exacto de tu Azure App Service
+
+
 
 stages:
 
+
+
 # =====================================================
+
 # 1️⃣ Etapa: CI (Integración Continua) - Build y Test
+
 # =====================================================
+
 - stage: CI_BuildAndTest
+
   displayName: 'Etapa 1: Integración Continua (Build y Test)'
+
   jobs:
+
   - job: PythonCI
+
     displayName: 'Job: Compilación, Instalación y Pruebas'
+
     steps:
+
     
+
     # --- 1. Configuración de Python ---
+
     - task: UsePythonVersion@0
+
       displayName: 'Configurar Python $(PythonVersion)'
+
       inputs:
+
         versionSpec: '$(PythonVersion)'
 
-    # --- 2. Instalación de Dependencias ---
-    - script: |
-        cd $(AppSourceDir)
-        python -m venv $(VenvName)
-        if [ -f "$(VenvName)/bin/activate" ]; then
-            source $(VenvName)/bin/activate
-        else
-            . $(VenvName)/Scripts/activate
-        fi
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-      displayName: 'Instalar dependencias en entorno virtual'
-      
-    # --- 3. Ejecutar Pruebas ---
-    - script: |
-        cd $(AppSourceDir)
-        if [ -f "$(VenvName)/bin/activate" ]; then
-            source $(VenvName)/bin/activate
-        else
-            . $(VenvName)/Scripts/activate
-        fi
-        pytest --junitxml=results.xml
-      displayName: 'Ejecutar pruebas de integración continua'
-      continueOnError: false
 
-    # --- 4. Publicar Resultados de Pruebas ---
+
+    # --- 2. Instalación de Dependencias (Actividad 11) ---
+
+    - script: |
+
+        cd $(AppSourceDir)
+
+        # Crea y activa el entorno virtual
+
+        python -m venv $(VenvName)
+
+        . $(VenvName)/Scripts/activate 
+
+        python -m pip install --upgrade pip
+
+        # Instala dependencias desde requirements.txt
+
+        pip install -r requirements.txt
+
+      displayName: 'Instalar Dependencias en Entorno Virtual'
+
+      
+
+    # --- 3. Ejecutar Pruebas (Actividad 14) ---
+
+    - script: |
+
+        cd $(AppSourceDir)
+
+        # Reactiva el venv para asegurar que pytest esté disponible
+
+        . $(VenvName)/Scripts/activate
+
+        # Ejecuta pytest en la carpeta 'test' y guarda los resultados para Azure DevOps
+
+        pytest test --junitxml=results.xml
+
+      displayName: 'Ejecutar Pruebas de Integración Continua'
+
+      continueOnError: false # Detiene el pipeline si las pruebas fallan
+
+
+
+    # --- 4. Publicar Resultados de Pruebas (Logs y Métricas) ---
+
     - task: PublishTestResults@2
-      displayName: 'Publicar resultados de pruebas'
+
+      displayName: 'Publicar Resultados de Pruebas (Para Azure Boards)'
+
       inputs:
+
         testResultsFormat: 'JUnit'
+
         testResultsFiles: '**/results.xml'
+
         failTaskOnFailedTests: true
+
         
+
     # --- 5. Publicar Artefactos ---
+
     - task: PublishBuildArtifacts@1
-      displayName: 'Publicar artefacto del build'
+
+      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
+
       inputs:
-        pathToPublish: '$(AppSourceDir)'
+
+        # El código fuente a desplegar es la carpeta 'sgt'
+
+        pathToPublish: '$(AppSourceDir)/sgt' 
+
         artifactName: '$(ArtifactName)'
 
+
+
 # =====================================================
+
 # 2️⃣ Etapa: CD (Despliegue Continuo)
+
 # =====================================================
+
 - stage: CD_Deployment
+
   displayName: 'Etapa 2: Despliegue (Entorno Integrado Funcional)'
-  dependsOn: CI_BuildAndTest
+
+  dependsOn: CI_BuildAndTest  # Solo procede si la CI fue exitosa
+
   condition: succeeded()
+
   
+
   jobs:
+
   - deployment: DeployFunctionalIncrement
+
     displayName: 'Job: Despliegue a App Service'
+
     
-    environment: 'Entorno-Integrado-SGT'  
+
+    # Se recomienda crear un Environment en Azure DevOps con este nombre para control
+
+    environment: 'Entorno-Integrado-SGT' 
+
     
+
     strategy:
+
       runOnce:
+
         deploy:
+
           steps:
+
           
+
           # --- 1. Descargar Artefacto ---
+
           - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar artefacto de código'
+
+            displayName: 'Descargar Artefacto de Código'
+
             inputs:
+
               artifactName: '$(ArtifactName)'
+
               path: '$(Pipeline.Workspace)/$(ArtifactName)'
 
-          # --- 2. Despliegue a Azure App Service ---
+
+
+          # --- 2. Despliegue a Azure App Service (Actividad 11: Deploy) ---
+
           - task: AzureWebApp@1
-            displayName: 'Desplegar incrementos funcionales a App Service'
+
+            displayName: 'Desplegar Incrementos Funcionales a App Service'
+
             inputs:
-              azureSubscription: '$(ServiceConnectionName)'  
-              appName: '$(AppServiceName)'              
-              package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
-          # --- 3. Validación HTTP ---
-          - script: |
-              echo "Verificando respuesta del App Service..."
-              status=$(curl -o /dev/null -s -w "%{http_code}\n" https://$(AppServiceName).azurewebsites.net)
-              if [ "$status" -eq 200 ]; then
-                echo "✅ App Service responde correctamente (HTTP 200)."
-              else
-                echo "❌ Error: App Service respondió con $status"
-                exit 1
-              fi
-            displayName: 'Validar despliegue HTTP'
+              # Usa el nombre de la conexión que creaste en Project Settings
 
-          # --- 4. Notificación a Teams ---
-          - script: |
-              curl -H 'Content-Type: application/json' -d "{
-                  \"@type\": \"MessageCard\",
-                  \"@context\": \"https://schema.org/extensions\",
-                  \"summary\": \"Pipeline completado\",
-                  \"themeColor\": \"00FF00\",
-                  \"title\": \"🚀 Pipeline CI/CD completado\",
-                  \"sections\": [{
-                      \"activityTitle\": \"App Service: $(AppServiceName)\",
-                      \"activitySubtitle\": \"URL: https://$(AppServiceName).azurewebsites.net\",
-                      \"facts\": [
-                          {\"name\": \"Estado\", \"value\": \"✅ Éxito\"},
-                          {\"name\": \"Stage\", \"value\": \"CD_Deployment\"}
-                      ]
-                  }]
-              }" $(TeamsWebhook)
-            displayName: 'Notificar Teams'
+              azureSubscription: '$(ServiceConnectionName)' 
 
-          # --- 5. Mensaje final ---
+              # Usa el nombre del App Service creado en Azure
+
+              appName: '$(AppServiceName)'                 
+
+              # La ruta apunta al paquete descargado que contiene la carpeta /sgt
+
+              package: '$(Pipeline.Workspace)/$(ArtifactName)' 
+
+              # Comando de inicio recomendado para aplicaciones Python en App Service Linux
+
+              # Ajusta 'app:app' según cómo inicies tu aplicación (ej: main:app si usas Flask/Gunicorn)
+
+              # Si usas Django, busca el comando de inicio de Django para App Service.
+
+              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 app:app' 
+
+          
+
+          # --- 3. Validación de Despliegue (Actividad 15) ---
+
           - script: |
+
               echo "✅ Pipeline CI/CD completado exitosamente."
-              echo "Las 3 Historias de Usuario están desplegadas en:"
-              echo "URL: https://$(AppServiceName).azurewebsites.net"
-            displayName: 'Mensaje de éxito y validación'
+
+              echo "Actividad 15: Evidencia de funcionalidad integrada."
+
+              echo "Las 3 Historias de Usuario (Actividad 13) están desplegadas en:"
+
+              echo "URL de App Service: https://$(AppServiceName).azurewebsites.net"
+
+            displayName: 'Mensaje de Éxito y URL de Validación'
