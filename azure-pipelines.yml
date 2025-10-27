@@ -1,112 +1,114 @@
 # =====================================================
-# 📦 Pipeline CI/CD para Flask + HTML (Proyecto SGT)
+# 📦 Pipeline para HTML Estático (Usando Flask como Servidor)
+# Flujo: CI (Build/Test) -> CD (Deploy)
+# Objetivo: Despliegue de login.html con trazabilidad
+#
+# 🔥 CORRECCIÓN APLICADA: Se añadió 'workspace: clean: all' al job de
+#    despliegue para resolver el error 'System.IO.IOException: Cannot create...'
+#    en el agente local.
 # =====================================================
 
 trigger:
 - main
 
+# ⚠️ Seguimos usando el agente local
 pool:
   name: 'AgenteLocal'
 
+# Variables del Proyecto
 variables:
   AppSourceDir: '$(Build.SourcesDirectory)'
   ArtifactName: 'sgt-deploy-package'
-  ServiceConnectionName: 'AZ-Conexion-SGT'
-  AppServiceName: 'sgt-app-integrated-2025'
-  PythonVersion: '3.11'
+  
+  # VALORES DE AZURE CONFIRMADOS
+  ServiceConnectionName: 'AZ-Conexion-SGT'        
+  AppServiceName: 'sgt-app-integrated-2025'       
 
 stages:
 
 # =====================================================
-# 1️⃣ Etapa: CI (Integración Continua)
+# 1️⃣ Etapa: CI (Integración Continua) - Build y Test
 # =====================================================
 - stage: CI_BuildAndTest
-  displayName: 'Etapa 1: Integración Continua (Build y Test)'
+  displayName: 'Etapa 1: Integración Continua (Pruebas)'
   jobs:
   - job: PythonCI
-    displayName: 'Job: Preparación y Pruebas Python'
+    displayName: 'Job: Preparación y Pruebas'
     steps:
-
-    # --- Configurar Python ---
+    
+    # --- 1. Configuración de Python (Necesario para Gunicorn y Pruebas) ---
     - task: UsePythonVersion@0
-      displayName: '🐍 Configurar Python $(PythonVersion)'
+      displayName: 'Configurar Python 3.11'
       inputs:
-        versionSpec: '$(PythonVersion)'
+        versionSpec: '3.11'
 
-    # --- Instalar dependencias ---
+    # --- 2. Instalación de Dependencias (Flask y Gunicorn) ---
     - script: |
-        echo "Instalando dependencias..."
         pip install -r requirements.txt
-      displayName: '📦 Instalar dependencias Flask y Gunicorn'
-
-    # --- Ejecutar pruebas (si existen) ---
+      displayName: 'Instalar Flask y Gunicorn'
+      
+    # --- 3. Ejecutar Pruebas (Actividad 14) ---
     - script: |
-        echo "Ejecutando pruebas..."
-        pytest test --junitxml=results.xml || echo "Sin pruebas definidas."
-      displayName: '🧪 Ejecutar pruebas unitarias'
+        pytest test --junitxml=results.xml
+      displayName: 'Ejecutar Pruebas de Integración Continua'
+      continueOnError: false
 
     - task: PublishTestResults@2
-      displayName: '📊 Publicar resultados de pruebas'
+      displayName: 'Publicar Resultados de Pruebas (Actividad 14)'
       inputs:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/results.xml'
-        failTaskOnFailedTests: false
-
-    # --- Publicar artefactos ---
+        failTaskOnFailedTests: true
+        
+    # --- 4. Publicar Artefactos ---
     - task: PublishBuildArtifacts@1
-      displayName: '📤 Publicar artefacto del proyecto /sgt'
+      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
       inputs:
-        pathToPublish: '$(AppSourceDir)/sgt'
+        pathToPublish: '$(AppSourceDir)/sgt'  
         artifactName: '$(ArtifactName)'
-        publishLocation: 'Container'
-
 
 # =====================================================
 # 2️⃣ Etapa: CD (Despliegue Continuo)
 # =====================================================
 - stage: CD_Deployment
-  displayName: 'Etapa 2: Despliegue (App Service Integrado)'
+  displayName: 'Etapa 2: Despliegue (Entorno Integrado Funcional)'
   dependsOn: CI_BuildAndTest
   condition: succeeded()
-
+  
   jobs:
   - deployment: DeployFunctionalIncrement
-    displayName: '🚀 Job: Despliegue en Azure Web App'
-    environment: 'Entorno-Integrado-SGT'
-
+    displayName: 'Job: Despliegue a App Service'
+    
+    # ✅ CORRECCIÓN CLAVE: Limpiar el espacio de trabajo antes de descargar
+    #    artefactos para evitar el error de System.IO.IOException.
+    workspace:
+      clean: all
+    
+    environment: 'Entorno-Integrado-SGT'  
+    
     strategy:
       runOnce:
         deploy:
           steps:
-
-          # 🔹 Limpiar directorios previos
-          - script: |
-              echo "🧹 Limpiando workspace previo..."
-              rd /s /q "$(Pipeline.Workspace)\artifacts_*" 2>nul || echo "Nada que limpiar"
-            displayName: '🧹 Limpiar artefactos antiguos'
-
-          # 🔹 Descargar artefactos del build actual
+          
           - task: DownloadPipelineArtifact@2
-            displayName: '⬇️ Descargar artefactos del build actual'
+            displayName: 'Descargar Artefacto de Código'
             inputs:
-              buildType: 'current'
-              artifact: '$(ArtifactName)'
-              path: '$(Pipeline.Workspace)/artifacts_$(Build.BuildId)'
+              artifactName: '$(ArtifactName)'
+              # El directorio se limpiará, por lo que esta ruta es segura.
+              path: '$(Pipeline.Workspace)/$(ArtifactName)' 
 
-          # 🌐 Desplegar en Azure Web App
           - task: AzureWebApp@1
-            displayName: '🚀 Desplegar aplicación Flask en Azure App Service'
+            displayName: 'Desplegar Archivo HTML con Servidor Python'
             inputs:
-              azureSubscription: '$(ServiceConnectionName)'
-              appName: '$(AppServiceName)'
-              appType: 'webApp'
-              package: '$(Pipeline.Workspace)/artifacts_$(Build.BuildId)'
+              azureSubscription: '$(ServiceConnectionName)'  
+              appName: '$(AppServiceName)'   
+              appType: webApp # CORRECCIÓN PREVIA: Especificar el tipo de App Service.
+              package: '$(Pipeline.Workspace)/$(ArtifactName)'  
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 main:app'
-
-          # ✅ Mensaje final
+          
           - script: |
-              echo "================================================="
-              echo "✅ Pipeline CI/CD completado exitosamente"
-              echo "🌍 URL de App Service: https://$(AppServiceName).azurewebsites.net"
-              echo "================================================="
-            displayName: '📢 Mensaje de éxito y validación'
+              echo "✅ Pipeline CI/CD completado exitosamente."
+              echo "Actividad 15: Evidencia de funcionalidad integrada (HTML Desplegado)."
+              echo "URL de App Service: https://$(AppServiceName).azurewebsites.net"
+            displayName: 'Mensaje de Éxito y URL de Validación'
