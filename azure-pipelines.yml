@@ -39,7 +39,7 @@ stages:
 
     # --- 2. Instalar dependencias ---
     - script: |
-        cd $(AppSourceDir)/sgt
+        cd $(AppSourceDir)
         python -m pip install --upgrade pip
         pip install -r requirements.txt
       displayName: 'Instalar dependencias (Flask y Gunicorn)'
