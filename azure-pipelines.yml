@@ -118,10 +118,6 @@ stages:
               # 🔥 Comando de arranque (Flask via Gunicorn)
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
-              # ✅ CORREGIDO: formato válido de appSettings
-              appSettings: |
-                WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
-
           # --- 3. Mensaje final ---
           - script: |
               echo "✅ Despliegue completado correctamente."
