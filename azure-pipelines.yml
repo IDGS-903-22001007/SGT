@@ -13,7 +13,7 @@ variables:
   ArtifactName: 'sgt-deploy-package'
   ServiceConnectionName: 'AZ-Conexion-SGT'        
   AppServiceName: 'sgt-app-integrated-2025'       
-  PythonVersion: '3.11' # Agregada la versión de Python
+  PythonVersion: '3.11'
 
 stages:
 
@@ -50,11 +50,10 @@ stages:
         
     # --- 4. Publicar Artefactos ---
     - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto del Build (Carpeta Raíz)'
+      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
       inputs:
-        # 🔥 CAMBIO CLAVE: Publicamos desde la raíz, no desde /sgt
+        # 🔥 CORRECCIÓN CLAVE: Publicar SÓLO la carpeta /sgt
         pathToPublish: '$(AppSourceDir)/sgt'  
-
         artifactName: '$(ArtifactName)'
 
 # =====================================================
@@ -89,7 +88,7 @@ stages:
               appName: '$(AppServiceName)'   
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              # 🔥 startupCommand se queda vacío para que Azure use el estándar: gunicorn --bind=0.0.0.0 --workers=1 main:app
+              # Eliminamos startupCommand para que Azure use el estándar gunicorn main:app
           
           - script: |
               echo "✅ Pipeline CI/CD completado exitosamente."
