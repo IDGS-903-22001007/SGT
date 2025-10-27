@@ -123,11 +123,7 @@ stages:
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
               # Usamos 'sgt.main:app' porque main.py está dentro de 'sgt/'
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
-              # 🚀 NUEVO: Configuraciones para App Service que fuerzan la ejecución
-              # WEBSITE_RUN_FROM_PACKAGE: 0 deshabilita la ejecución desde el ZIP
-              # (aunque Azure WebApp task lo maneja, a veces es útil forzarlo)
-              # y PYTHONSTARTUP para apuntar al archivo de inicio (aunque Gunicorn lo hace)
-              # El parámetro "WEBSITES_ENABLE_APP_SERVICE_STORAGE" en "true" es importante.
+              # ✅ CORRECCIÓN DE SINTAXIS: Se removió la configuración inválida
+              # y se dejó la sintaxis estándar de YAML para appSettings.
               appSettings: |
-                - PYTHONSTARTUP ""
                 - WEBSITES_ENABLE_APP_SERVICE_STORAGE true
