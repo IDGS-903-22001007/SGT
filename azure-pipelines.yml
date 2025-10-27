@@ -1,14 +1,13 @@
 # =====================================================
 # 📦 Pipeline para proyecto Python - Azure DevOps
 # Flujo: CI (Build/Test) -> CD (Deploy)
-# Objetivo: Despliegue funcional de 3 Historias de Usuario (Semana 3)
 # =====================================================
 
 trigger:
 - main
 
 pool:
-  name: 'AgenteLocal'
+  name: 'AgenteLocal' # o usa 'ubuntu-latest' para Linux en la nube
 
 # Variables del Proyecto
 variables:
@@ -19,7 +18,8 @@ variables:
   
   # VALORES DE AZURE CONFIRMADOS
   ServiceConnectionName: 'AZ-Conexion-SGT'        
-  AppServiceName: 'sgt-app-integrated-2025'       
+  AppServiceName: 'sgt-app-integrated-2025'  
+  TeamsWebhook: '' # Coloca aquí la URL del webhook de Teams (secret)
 
 stages:
 
@@ -39,30 +39,34 @@ stages:
       inputs:
         versionSpec: '$(PythonVersion)'
 
-    # --- 2. Instalación de Dependencias (Actividad 11) ---
+    # --- 2. Instalación de Dependencias ---
     - script: |
         cd $(AppSourceDir)
-        # Crea y activa el entorno virtual (VenvName)
         python -m venv $(VenvName)
-        . $(VenvName)/Scripts/activate  
+        if [ -f "$(VenvName)/bin/activate" ]; then
+            source $(VenvName)/bin/activate
+        else
+            . $(VenvName)/Scripts/activate
+        fi
         python -m pip install --upgrade pip
-        # Instala dependencias (incluyendo gunicorn)
         pip install -r requirements.txt
-      displayName: 'Instalar Dependencias en Entorno Virtual'
+      displayName: 'Instalar dependencias en entorno virtual'
       
-    # --- 3. Ejecutar Pruebas (Actividad 14) ---
+    # --- 3. Ejecutar Pruebas ---
     - script: |
         cd $(AppSourceDir)
-        # Reactiva el venv para asegurar que pytest esté disponible
-        . $(VenvName)/Scripts/activate
-        # Ejecuta pytest y guarda los resultados
-        pytest test --junitxml=results.xml
-      displayName: 'Ejecutar Pruebas de Integración Continua'
-      continueOnError: false # Detiene el pipeline si las pruebas fallan
+        if [ -f "$(VenvName)/bin/activate" ]; then
+            source $(VenvName)/bin/activate
+        else
+            . $(VenvName)/Scripts/activate
+        fi
+        pytest --junitxml=results.xml
+      displayName: 'Ejecutar pruebas de integración continua'
+      continueOnError: false
 
-    # --- 4. Publicar Resultados de Pruebas (Logs y Métricas) ---
+    # --- 4. Publicar Resultados de Pruebas ---
     - task: PublishTestResults@2
-      displayName: 'Publicar Resultados de Pruebas (Actividad 14)'
+      displayName: 'Publicar resultados de pruebas'
       inputs:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/results.xml'
@@ -70,9 +74,9 @@ stages:
         
     # --- 5. Publicar Artefactos ---
     - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
+      displayName: 'Publicar artefacto del build'
       inputs:
-        pathToPublish: '$(AppSourceDir)/sgt'  
+        pathToPublish: '$(AppSourceDir)'
         artifactName: '$(ArtifactName)'
 
 # =====================================================
@@ -96,25 +100,54 @@ stages:
           
           # --- 1. Descargar Artefacto ---
           - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar Artefacto de Código'
+            displayName: 'Descargar artefacto de código'
             inputs:
               artifactName: '$(ArtifactName)'
               path: '$(Pipeline.Workspace)/$(ArtifactName)'
 
-          # --- 2. Despliegue a Azure App Service (Actividad 11: Deploy) ---
+          # --- 2. Despliegue a Azure App Service ---
           - task: AzureWebApp@1
-            displayName: 'Desplegar Incrementos Funcionales a App Service'
+            displayName: 'Desplegar incrementos funcionales a App Service'
             inputs:
               azureSubscription: '$(ServiceConnectionName)'  
               appName: '$(AppServiceName)'              
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              # CORRECCIÓN: Entra a la carpeta 'sgt' antes de ejecutar gunicorn.
-              startupCommand: 'cd sgt && gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 main:app'
-          
-          # --- 3. Validación de Despliegue (Actividad 15) ---
+              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
+
+          # --- 3. Validación HTTP ---
+          - script: |
+              echo "Verificando respuesta del App Service..."
+              status=$(curl -o /dev/null -s -w "%{http_code}\n" https://$(AppServiceName).azurewebsites.net)
+              if [ "$status" -eq 200 ]; then
+                echo "✅ App Service responde correctamente (HTTP 200)."
+              else
+                echo "❌ Error: App Service respondió con $status"
+                exit 1
+              fi
+            displayName: 'Validar despliegue HTTP'
+
+          # --- 4. Notificación a Teams ---
+          - script: |
+              curl -H 'Content-Type: application/json' -d "{
+                  \"@type\": \"MessageCard\",
+                  \"@context\": \"https://schema.org/extensions\",
+                  \"summary\": \"Pipeline completado\",
+                  \"themeColor\": \"00FF00\",
+                  \"title\": \"🚀 Pipeline CI/CD completado\",
+                  \"sections\": [{
+                      \"activityTitle\": \"App Service: $(AppServiceName)\",
+                      \"activitySubtitle\": \"URL: https://$(AppServiceName).azurewebsites.net\",
+                      \"facts\": [
+                          {\"name\": \"Estado\", \"value\": \"✅ Éxito\"},
+                          {\"name\": \"Stage\", \"value\": \"CD_Deployment\"}
+                      ]
+                  }]
+              }" $(TeamsWebhook)
+            displayName: 'Notificar Teams'
+
+          # --- 5. Mensaje final ---
           - script: |
               echo "✅ Pipeline CI/CD completado exitosamente."
-              echo "Actividad 15: Evidencia de funcionalidad integrada."
-              echo "Las 3 Historias de Usuario (Actividad 13) están desplegadas en:"
-              echo "URL de App Service: https://$(AppServiceName).azurewebsites.net"
-            displayName: 'Mensaje de Éxito y URL de Validación'
+              echo "Las 3 Historias de Usuario están desplegadas en:"
+              echo "URL: https://$(AppServiceName).azurewebsites.net"
+            displayName: 'Mensaje de éxito y validación'
