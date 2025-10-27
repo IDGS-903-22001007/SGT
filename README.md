@@ -20,3 +20,7 @@ Desarrollar un sistema web que permita gestionar eficientemente los recursos del
 | Control de versiones | GitHub |
 | Integración continua | Azure Pipelines |
 | IDE principal | Visual Studio Code |
+
+
+
+Prueba de Trazabilidad 10-26-2025
