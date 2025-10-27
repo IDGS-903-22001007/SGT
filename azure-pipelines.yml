@@ -3,9 +3,7 @@
 # Flujo: CI (Build/Test) -> CD (Deploy)
 # Objetivo: Despliegue de login.html con trazabilidad
 #
-# 🔥 CORRECCIÓN CLAVE: Se añade un paso de CopyFiles@2 para mover
-#    requirements.txt a la raíz del artefacto, asegurando que Azure
-#    instale las dependencias correctamente.
+# ✅ Pipeline final con correcciones de agente local, empaquetado y sintaxis Azure.
 # =====================================================
 
 trigger:
@@ -19,7 +17,7 @@ pool:
 variables:
   AppSourceDir: '$(Build.SourcesDirectory)'
   ArtifactName: 'sgt-deploy-package'
-  DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)' # Nuevo path temporal
+  DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)' # Ruta de staging para el paquete
   
   # VALORES DE AZURE CONFIRMADOS
   ServiceConnectionName: 'AZ-Conexion-SGT'        
@@ -43,7 +41,7 @@ stages:
       inputs:
         versionSpec: '3.11'
 
-    # --- 2. Instalación de Dependencias y Pruebas (Igual) ---
+    # --- 2. Instalación de Dependencias y Pruebas ---
     - script: |
         pip install -r requirements.txt
       displayName: 'Instalar Flask y Gunicorn'
@@ -60,29 +58,28 @@ stages:
         testResultsFiles: '**/results.xml'
         failTaskOnFailedTests: true
         
-    # 💥 CORRECCIÓN DE EMPAQUETADO: Crear la estructura del paquete
+    # 💥 EMPAQUETADO FINAL: Crear la estructura de despliegue
     # --- 4a. Copiar archivos al Staging Directory ---
-    # Copia la carpeta 'sgt' completa (con main.py)
+    # Copia la carpeta 'sgt' completa (con main.py y templates/login.html)
     - task: CopyFiles@2
-      displayName: 'Copiar Carpeta SGT al Staging'
+      displayName: 'Copiar Carpeta SGT al Paquete'
       inputs:
         SourceFolder: '$(AppSourceDir)'
         Contents: 'sgt/**'
-        TargetFolder: '$(DeploymentPath)/sgt' # Cambiado para que sgt quede DENTRO del paquete
+        TargetFolder: '$(DeploymentPath)/sgt' 
 
     # Copia requirements.txt a la raíz del paquete de despliegue
     - task: CopyFiles@2
       displayName: 'Copiar requirements.txt a la Raíz del Paquete'
       inputs:
         SourceFolder: '$(AppSourceDir)'
-        Contents: 'requirements.txt' # Asume que está en la raíz del repo
+        Contents: 'requirements.txt' 
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4b. Publicar Artefactos ---
     - task: PublishBuildArtifacts@1
       displayName: 'Publicar Artefacto de Despliegue'
       inputs:
-        # Publicamos la carpeta temporal que creamos
         pathToPublish: '$(DeploymentPath)'  
         artifactName: '$(ArtifactName)'
 
@@ -121,8 +118,13 @@ stages:
               appName: '$(AppServiceName)'   
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              # CORRECCIÓN DE INICIO: Agrega PYTHONPATH para asegurar la importación
+              # Ajuste de PYTHONPATH y comando Gunicorn para encontrar sgt.main:app
               startupCommand: 'export PYTHONPATH=$PYTHONPATH:.; gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
-              # ✅ CORRECCIÓN FINAL DE SINTAXIS: Usamos sintaxis clave=valor
-              appSettings: |
-                WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
+              # Corrección de sintaxis del error 400 (Parameter name cannot be empty)
+              appSettings: '"-WEBSITES_ENABLE_APP_SERVICE_STORAGE true"'
+          
+          - script: |
+              echo "✅ Pipeline CI/CD completado exitosamente."
+              echo "Actividad 15: Evidencia de funcionalidad integrada (HTML Desplegado)."
+              echo "URL de App Service: https://$(AppServiceName).azurewebsites.net"
+            displayName: 'Mensaje de Éxito y URL de Validación'
