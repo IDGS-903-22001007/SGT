@@ -121,9 +121,8 @@ stages:
               appName: '$(AppServiceName)'   
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              # 🚀 CORRECCIÓN ROBUSTA: Usar la shell y PYTHONPATH para asegurar la importación
+              # CORRECCIÓN DE INICIO: Agrega PYTHONPATH para asegurar la importación
               startupCommand: 'export PYTHONPATH=$PYTHONPATH:.; gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
-              # ✅ CORRECCIÓN DE SINTAXIS: Se removió la configuración inválida
-              # y se dejó la sintaxis estándar de YAML para appSettings.
+              # ✅ CORRECCIÓN FINAL DE SINTAXIS: Usamos sintaxis clave=valor
               appSettings: |
-                - WEBSITES_ENABLE_APP_SERVICE_STORAGE true
+                WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
