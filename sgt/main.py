@@ -1,13 +1,16 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
+import os
 
-# Configuramos la app para que busque plantillas en el directorio actual ('.')
-# Esto debe coincidir con la ubicación de login.html
-app = Flask(__name__, template_folder='.') 
+# Flask automáticamente busca en la subcarpeta 'templates'
+# Para evitar eso, usamos send_from_directory
+app = Flask(__name__) 
 
 @app.route('/')
 def index():
-    # Renderizamos el archivo login.html
-    return render_template('login.html')
+    # 🔥 CORRECCIÓN PARA ESTRUCTURA PLANA:
+    # 'os.path.dirname(__file__)' obtiene la ruta de la carpeta actual (/sgt).
+    # 'login.html' es el nombre del archivo a servir.
+    return send_from_directory(os.path.dirname(__file__), 'login.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
