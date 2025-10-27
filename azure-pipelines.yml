@@ -53,7 +53,8 @@ stages:
       displayName: 'Publicar Artefacto del Build (Carpeta Raíz)'
       inputs:
         # 🔥 CAMBIO CLAVE: Publicamos desde la raíz, no desde /sgt
-        pathToPublish: '$(AppSourceDir)'  
+        pathToPublish: '$(AppSourceDir)/sgt'  
+
         artifactName: '$(ArtifactName)'
 
 # =====================================================
