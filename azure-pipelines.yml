@@ -68,7 +68,7 @@ stages:
       inputs:
         SourceFolder: '$(AppSourceDir)'
         Contents: 'sgt/**'
-        TargetFolder: '$(DeploymentPath)'
+        TargetFolder: '$(DeploymentPath)/sgt' # Cambiado para que sgt quede DENTRO del paquete
 
     # Copia requirements.txt a la raíz del paquete de despliegue
     - task: CopyFiles@2
@@ -112,7 +112,6 @@ stages:
             displayName: 'Descargar Artefacto de Código'
             inputs:
               artifactName: '$(ArtifactName)'
-              # El path sigue siendo el mismo, pero ahora contiene requirements.txt en la raíz
               path: '$(Pipeline.Workspace)/$(ArtifactName)' 
 
           - task: AzureWebApp@1
@@ -121,13 +120,14 @@ stages:
               azureSubscription: '$(ServiceConnectionName)'  
               appName: '$(AppServiceName)'   
               appType: webApp
-              # Desplegamos la carpeta con requirements.txt en la raíz
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
               # Usamos 'sgt.main:app' porque main.py está dentro de 'sgt/'
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
-          
-          - script: |
-              echo "✅ Pipeline CI/CD completado exitosamente."
-              echo "Actividad 15: Evidencia de funcionalidad integrada (HTML Desplegado)."
-              echo "URL de App Service: https://$(AppServiceName).azurewebsites.net"
-            displayName: 'Mensaje de Éxito y URL de Validación'
+              # 🚀 NUEVO: Configuraciones para App Service que fuerzan la ejecución
+              # WEBSITE_RUN_FROM_PACKAGE: 0 deshabilita la ejecución desde el ZIP
+              # (aunque Azure WebApp task lo maneja, a veces es útil forzarlo)
+              # y PYTHONSTARTUP para apuntar al archivo de inicio (aunque Gunicorn lo hace)
+              # El parámetro "WEBSITES_ENABLE_APP_SERVICE_STORAGE" en "true" es importante.
+              appSettings: |
+                - PYTHONSTARTUP ""
+                - WEBSITES_ENABLE_APP_SERVICE_STORAGE true
