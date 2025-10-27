@@ -3,9 +3,9 @@
 # Flujo: CI (Build/Test) -> CD (Deploy)
 # Objetivo: Despliegue de login.html con trazabilidad
 #
-# 🔥 CORRECCIÓN APLICADA: Se añadió 'workspace: clean: all' al job de
-#    despliegue y se corrigió el 'startupCommand' para apuntar
-#    al archivo 'main.py' dentro de la carpeta 'sgt'.
+# 🔥 CORRECCIÓN CLAVE: Se añade un paso de CopyFiles@2 para mover
+#    requirements.txt a la raíz del artefacto, asegurando que Azure
+#    instale las dependencias correctamente.
 # =====================================================
 
 trigger:
@@ -19,6 +19,7 @@ pool:
 variables:
   AppSourceDir: '$(Build.SourcesDirectory)'
   ArtifactName: 'sgt-deploy-package'
+  DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)' # Nuevo path temporal
   
   # VALORES DE AZURE CONFIRMADOS
   ServiceConnectionName: 'AZ-Conexion-SGT'        
@@ -42,12 +43,11 @@ stages:
       inputs:
         versionSpec: '3.11'
 
-    # --- 2. Instalación de Dependencias (Flask y Gunicorn) ---
+    # --- 2. Instalación de Dependencias y Pruebas (Igual) ---
     - script: |
         pip install -r requirements.txt
       displayName: 'Instalar Flask y Gunicorn'
       
-    # --- 3. Ejecutar Pruebas (Actividad 14) ---
     - script: |
         pytest test --junitxml=results.xml
       displayName: 'Ejecutar Pruebas de Integración Continua'
@@ -60,11 +60,30 @@ stages:
         testResultsFiles: '**/results.xml'
         failTaskOnFailedTests: true
         
-    # --- 4. Publicar Artefactos ---
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto del Build (Carpeta /sgt)'
+    # 💥 CORRECCIÓN DE EMPAQUETADO: Crear la estructura del paquete
+    # --- 4a. Copiar archivos al Staging Directory ---
+    # Copia la carpeta 'sgt' completa (con main.py)
+    - task: CopyFiles@2
+      displayName: 'Copiar Carpeta SGT al Staging'
       inputs:
-        pathToPublish: '$(AppSourceDir)/sgt'  # Publica la carpeta 'sgt'
+        SourceFolder: '$(AppSourceDir)'
+        Contents: 'sgt/**'
+        TargetFolder: '$(DeploymentPath)'
+
+    # Copia requirements.txt a la raíz del paquete de despliegue
+    - task: CopyFiles@2
+      displayName: 'Copiar requirements.txt a la Raíz del Paquete'
+      inputs:
+        SourceFolder: '$(AppSourceDir)'
+        Contents: 'requirements.txt' # Asume que está en la raíz del repo
+        TargetFolder: '$(DeploymentPath)'
+
+    # --- 4b. Publicar Artefactos ---
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publicar Artefacto de Despliegue'
+      inputs:
+        # Publicamos la carpeta temporal que creamos
+        pathToPublish: '$(DeploymentPath)'  
         artifactName: '$(ArtifactName)'
 
 # =====================================================
@@ -93,6 +112,7 @@ stages:
             displayName: 'Descargar Artefacto de Código'
             inputs:
               artifactName: '$(ArtifactName)'
+              # El path sigue siendo el mismo, pero ahora contiene requirements.txt en la raíz
               path: '$(Pipeline.Workspace)/$(ArtifactName)' 
 
           - task: AzureWebApp@1
@@ -101,10 +121,9 @@ stages:
               azureSubscription: '$(ServiceConnectionName)'  
               appName: '$(AppServiceName)'   
               appType: webApp
-              # El paquete contiene la carpeta 'sgt', por lo que el App Service
-              # tendrá una estructura con /home/site/wwwroot/sgt-deploy-package/sgt/...
+              # Desplegamos la carpeta con requirements.txt en la raíz
               package: '$(Pipeline.Workspace)/$(ArtifactName)'  
-              # 🚀 CAMBIO CLAVE: Gunicorn ahora busca el archivo 'main' dentro de la carpeta 'sgt'
+              # Usamos 'sgt.main:app' porque main.py está dentro de 'sgt/'
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
           
           - script: |
