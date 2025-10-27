@@ -1,16 +1,14 @@
-# Archivo: main.py
-from flask import Flask
+from flask import Flask, render_template
 
-# Esta es la instancia de la aplicación que Gunicorn necesita encontrar
-# La llamamos 'app'
-app = Flask(__name__)
+# 🔥 CORRECCIÓN CLAVE: Le decimos a Flask que busque archivos HTML (plantillas)
+# en el mismo directorio donde está main.py (que es la carpeta /sgt)
+app = Flask(__name__, template_folder='.')
 
-# Define una ruta simple para probar la conexión
-@app.route("/")
-def hello_world():
-    # El mensaje final para verificar que la Actividad 15 fue exitosa
-    return "<p>✅ ¡Despliegue CI/CD Exitoso! La Actividad 15 funciona.</p>"
+@app.route('/')
+def index():
+    # Renderiza el archivo login.html que está en la misma carpeta que main.py
+    return render_template('login.html')
 
-# Este bloque es solo para ejecutar localmente, Gunicorn lo ignora
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # Este bloque es solo para pruebas locales
     app.run(debug=True)
