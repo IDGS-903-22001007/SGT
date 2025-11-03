@@ -1,5 +1,7 @@
 import pyodbc
 
+# -- Conexión bd
+
 def get_connection():
     try:
         conn = pyodbc.connect(
