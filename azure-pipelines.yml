@@ -1,6 +1,7 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Empaquetado) -> CD (Deploy a Azure WebApp)
+# Solución FINAL para pyodbc en Linux
 # =====================================================
 
 trigger:
@@ -15,7 +16,7 @@ variables:
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
   ServiceConnectionName: 'AZ-Conexion-SGT'
   AppServiceName: 'sgt-app-integrated-2025'
-  PythonVersion: '3.11' 
+  PythonVersion: '3.11' # ✅ Versión centralizada
 
 
 # =====================================================
@@ -39,9 +40,9 @@ stages:
 
     # --- 1. Configurar versión de Python ---
     - task: UsePythonVersion@0
-      displayName: 'Configurar Python 3.11'
+      displayName: 'Configurar Python $(PythonVersion)' # ✅ Se usa la variable aquí
       inputs:
-        versionSpec: '3.11'
+        versionSpec: '$(PythonVersion)' # ✅ Se usa la variable aquí
 
     # --- 2. Instalar dependencias ---
     - script: |
@@ -66,6 +67,7 @@ stages:
           sgt/** # Tu código fuente, incluyendo main.py
           requirements.txt     # CRÍTICO: Para instalar dependencias en Azure
           templates/** # CRÍTICO: Templates en la raíz
+          start.sh # 🛠️ Nuevo script de inicio
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
@@ -105,9 +107,8 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              # 🛠️ CORRECCIÓN DE PYODBC: Instala el controlador ODBC de Linux (unixodbc-dev)
-              # antes de iniciar Gunicorn. Esto resuelve el ModuleNotFoundError.
-              startupCommand: 'apt-get update && apt-get install -y unixodbc-dev && gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
+              # 🛠️ Ejecuta el script de shell que instala el driver ODBC y luego Gunicorn.
+              startupCommand: 'bash start.sh'
 
 
 # =====================================================
