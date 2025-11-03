@@ -2,125 +2,130 @@
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Build/Test) -> CD (Deploy a Azure WebApp)
 # Objetivo: Desplegar login.html servido por Flask
-#
-# 🧠 Estructura esperada:
-# SGT/
-# ┣ 📂 sgt/
-# ┃ ┣ 📜 main.py
-# ┃ ┣ 📂 templates/login.html
-# ┃ ┗ 📂 static/ (opcional)
-# ┣ 📜 requirements.txt
 # =====================================================
 
 trigger:
-- main
+  - main
 
-# 👷‍♂️ Agente local para ejecutar el pipeline
 pool:
-  name: 'AgenteLocal'
+  name: "AgenteLocal" # 👷‍♂️ Asegúrate que exista este agente local (Windows)
 
-# Variables globales del proyecto
 variables:
-  AppSourceDir: '$(Build.SourcesDirectory)/sgt'
-  ArtifactName: 'sgt-deploy-package'
-  DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
-  
-  # ⚙️ Variables de Azure App Service
-  ServiceConnectionName: 'AZ-Conexion-SGT'
-  AppServiceName: 'sgt-app-integrated-2025'
+  AppSourceDir: "$(Build.SourcesDirectory)/sgt"
+  ArtifactName: "sgt-deploy-package"
+  DeploymentPath: "$(Build.ArtifactStagingDirectory)/$(ArtifactName)"
+  ServiceConnectionName: "AZ-Conexion-SGT"
+  AppServiceName: "sgt-app-integrated-2025" # ✅ Nombre corregido
 
 # =====================================================
-# 1️⃣ Etapa: CI - Integración Continua
+# 1️⃣ Etapa: CI - Integración Continua (Pruebas Unitarias)
 # =====================================================
 stages:
-- stage: CI_BuildAndTest
-  displayName: 'Etapa 1: Integración Continua (Pruebas y Empaquetado)'
-  jobs:
-  - job: PythonCI
-    displayName: 'Job: Instalación, Pruebas y Empaquetado'
-    steps:
-
-    # --- 1. Configurar versión de Python ---
-    - task: UsePythonVersion@0
-      displayName: 'Configurar Python 3.11'
-      inputs:
-        versionSpec: '3.11'
-
-    # --- 2. Instalar dependencias ---
-    - script: |
-        pip install -r requirements.txt
-      displayName: 'Instalar Flask, Gunicorn y dependencias'
-
-    # --- 3. Ejecutar pruebas (opcional si tienes carpeta /test) ---
-    - script: |
-        echo "Ejecutando pruebas automáticas..."
-        pytest test --junitxml=results.xml || echo "Sin pruebas definidas, continuando..."
-      displayName: 'Ejecutar Pruebas Unitarias'
-      continueOnError: true
-
-    - task: PublishTestResults@2
-      displayName: 'Publicar Resultados de Pruebas'
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/results.xml'
-        failTaskOnFailedTests: false
-
-    # --- 4. Copiar archivos para despliegue ---
-    - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación (sgt/)'
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)'
-        Contents: |
-          sgt/**
-          requirements.txt
-        TargetFolder: '$(DeploymentPath)'
-
-    # --- 5. Publicar artefactos ---
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto de Despliegue'
-      inputs:
-        pathToPublish: '$(DeploymentPath)'
-        artifactName: '$(ArtifactName)'
-
-# =====================================================
-# 2️⃣ Etapa: CD - Despliegue Continuo en Azure
-# =====================================================
-- stage: CD_Deployment
-  displayName: 'Etapa 2: Despliegue en Azure App Service'
-  dependsOn: CI_BuildAndTest
-  condition: succeeded()
-  
-  jobs:
-  - deployment: DeployToAzure
-    displayName: 'Job: Desplegar Flask App en Azure'
-    environment: 'Entorno-Integrado-SGT'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-
-          # --- 1. Descargar artefactos ---
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar Artefacto de Código Empaquetado'
+  - stage: CI_BuildAndTest
+    displayName: "Etapa 1: Integración Continua (Pruebas y Empaquetado)"
+    jobs:
+      - job: PythonCI
+        displayName: "Job: Instalación, Pruebas y Empaquetado"
+        pool:
+          name: "AgenteLocal"
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Configurar Python 3.11"
             inputs:
-              artifactName: '$(ArtifactName)'
-              path: '$(Pipeline.Workspace)/$(ArtifactName)'
+              versionSpec: "3.11"
 
-                   # --- 2. Desplegar a Azure ---
-          - task: AzureWebApp@1
-            displayName: 'Desplegar Flask App a Azure App Service'
-            inputs:
-              azureSubscription: '$(ServiceConnectionName)'
-              appName: '$(AppServiceName)'
-              appType: webApp
-              package: '$(Pipeline.Workspace)/$(ArtifactName)'
-
-              # 🔥 Comando de arranque (Flask via Gunicorn)
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
-
-          # --- 3. Mensaje final ---
           - script: |
-              echo "✅ Despliegue completado correctamente."
-              echo "App ejecutándose en: https://$(AppServiceName).azurewebsites.net"
-              echo "Actividad 15: Evidencia de HTML desplegado con Flask."
-            displayName: 'Mensaje de Éxito y URL Final'
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install pytest requests
+            displayName: "Instalar dependencias del proyecto"
+
+          # ✅ Pruebas unitarias con PowerShell (compatible en Windows)
+          - powershell: |
+              Write-Host "Ejecutando pruebas unitarias..."
+              pytest test --junitxml=results.xml
+            displayName: "Ejecutar Pruebas Unitarias (FAIL ON ERROR)"
+
+          - task: PublishTestResults@2
+            displayName: "Publicar Resultados de Pruebas Unitarias"
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "**/results.xml"
+              failTaskOnFailedTests: true
+
+          - task: CopyFiles@2
+            displayName: "Copiar Código de Aplicación"
+            inputs:
+              SourceFolder: "$(Build.SourcesDirectory)"
+              Contents: |
+                sgt/**
+                requirements.txt
+                test/**
+              TargetFolder: "$(DeploymentPath)"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publicar Artefacto de Despliegue"
+            inputs:
+              pathToPublish: "$(DeploymentPath)"
+              artifactName: "$(ArtifactName)"
+
+  # =====================================================
+  # 2️⃣ Etapa: CD - Despliegue Continuo en Azure
+  # =====================================================
+  - stage: CD_Deployment
+    displayName: "Etapa 2: Despliegue en Azure App Service"
+    dependsOn: CI_BuildAndTest
+    condition: succeeded()
+
+    jobs:
+      - deployment: DeployToAzure
+        displayName: "Job: Desplegar Flask App en Azure"
+        environment: "Entorno-Integrado-SGT"
+        pool:
+          name: "AgenteLocal"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: "Descargar Artefacto de Código Empaquetado"
+                  inputs:
+                    artifactName: "$(ArtifactName)"
+                    path: "$(Pipeline.Workspace)/$(ArtifactName)"
+
+                - task: AzureWebApp@1
+                  displayName: "Desplegar Flask App a Azure App Service"
+                  inputs:
+                    azureSubscription: "$(ServiceConnectionName)"
+                    appName: "$(AppServiceName)"
+                    appType: webApp
+                    package: "$(Pipeline.Workspace)/$(ArtifactName)/"
+                    startupCommand: "gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app"
+
+  # =====================================================
+  # 3️⃣ Etapa: Test Funcional Post-Deploy
+  # =====================================================
+  - stage: Functional_Tests
+    displayName: "Etapa 3: Pruebas Funcionales Post-Despliegue"
+    dependsOn: CD_Deployment
+    condition: succeeded()
+
+    jobs:
+      - job: FunctionalTest
+        displayName: "Job: Validación en Entorno Productivo (Post-Deploy)"
+        pool:
+          name: "AgenteLocal"
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Configurar Python 3.11"
+            inputs:
+              versionSpec: "3.11"
+
+          - script: |
+              pip install requests pytest
+            displayName: "Instalar dependencias de prueba"
+
+          - powershell: |
+              Write-Host "Ejecutando pruebas funcionales en la URL desplegada..."
+              pytest test/test_sample.py
+            displayName: "Ejecutar Pruebas Funcionales Post-Despliegue"
