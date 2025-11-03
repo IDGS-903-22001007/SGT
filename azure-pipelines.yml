@@ -1,16 +1,16 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Empaquetado) -> CD (Deploy a Azure WebApp)
-# Objetivo: Desplegar la aplicación Flask
 # =====================================================
 
 trigger:
 - main
 
 pool:
-  name: 'AgenteLocal' # 👷‍♂️ Usando tu agente local
+  name: 'AgenteLocal'
 
 variables:
+  # AppSourceDir: '$(Build.SourcesDirectory)/sgt' # Esta variable ya no se usa, pero la mantengo comentada
   ArtifactName: 'sgt-deploy-package'
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
   ServiceConnectionName: 'AZ-Conexion-SGT'
@@ -26,6 +26,9 @@ stages:
   jobs:
   - job: PythonCI
     displayName: 'Job: Instalación y Empaquetado'
+    pool:
+      # Asegura que el job use el pool
+      name: 'AgenteLocal' 
     steps:
 
     # --- 0. Limpiar workspace ---
@@ -44,22 +47,24 @@ stages:
     - script: |
         echo "📦 Instalando dependencias..."
         pip install --upgrade pip
-        # Instala dependencias. Se usa un reintento por si falla la primera vez (común en agentes locales)
         pip install -r requirements.txt || (echo "Reintentando instalación..." && pip install -r requirements.txt)
       displayName: 'Instalar Flask y dependencias'
 
     # --- 3. Copiar archivos para despliegue ---
     - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación (sgt, templates, app.py)'
+      displayName: 'Copiar Código de Aplicación'
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
         Contents: |
-          sgt/** # Tu código fuente y modelos
-          requirements.txt     # Para la instalación en Azure
-          app.py               # Archivo Python en la raíz (si lo usas como entry point)
-          templates/** # ✅ CRÍTICO: La carpeta de templates que moviste a la raíz
-          # Si tienes main.py en la raíz, agrégalo aquí también:
+          sgt/** # Código fuente
+          requirements.txt     # Dependencias
+          app.py               # Archivo Python en la raíz (si existe)
+          templates/** # ✅ CRÍTICO: Templates en la raíz
+          reportes/** # ✅ AGREGADO: Carpeta de reportes (si existe)
+          
+          # Si tienes main.py en la raíz, agrégalo aquí:
           # main.py
+        # El directorio de destino se crea si es necesario.
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
@@ -98,8 +103,6 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              # 🚀 Comando de Gunicorn: Asume que la aplicación se ejecuta desde la raíz 
-              # y que el archivo de inicio es 'main.py' dentro del paquete 'sgt'.
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
 # =====================================================
