@@ -75,7 +75,7 @@ def reporte_abordajes_pdf():
     flash("No hay datos para exportar", "danger")
     return redirect(url_for('reporte_abordajes'))
 
-# ---------------- REPORTE DE SERVICIOS ESPECIALES ----------------
+# ---------------- REPORTE DE SERVICIOS ESPECIALES COMPLETO ----------------
 @app.route('/reporte_servicios_especiales', methods=['GET', 'POST'])
 def reporte_servicios_especiales():
     fecha_inicio = request.form.get('fecha_inicio') if request.method == 'POST' else None
