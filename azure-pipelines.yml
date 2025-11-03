@@ -44,6 +44,9 @@ stages:
     # ✅ Pruebas unitarias con PowerShell (compatible en Windows)
     - powershell: |
         Write-Host "Ejecutando pruebas unitarias..."
+        $env:PYTHONPATH = "$(Build.SourcesDirectory)"
+        Write-Host "PYTHONPATH=$env:PYTHONPATH"
+        Write-Host "Ejecutando pruebas unitarias..."
         pytest test --junitxml=results.xml
       displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
 
