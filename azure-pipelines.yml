@@ -67,7 +67,6 @@ stages:
           sgt/** # Tu código fuente, incluyendo main.py
           requirements.txt     # CRÍTICO: Para instalar dependencias en Azure
           templates/** # CRÍTICO: Templates en la raíz
-          reportes/** # Carpeta de reportes (si existe)
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
