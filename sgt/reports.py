@@ -87,7 +87,7 @@ class ReporteAbordajes:
         return nombre_archivo
 
 
-# ------------------------- HU-03: Reporte de Servicios Especiales Completo  -------------------------
+# ------------------------- HU-03: Reporte de Servicios Especiales Completo Acualizado  -------------------------
 class ReporteServiciosEspeciales:
     @staticmethod
     def obtener_servicios(fecha_inicio=None, fecha_fin=None, nombre_servicio=None):
