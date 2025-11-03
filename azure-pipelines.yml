@@ -70,6 +70,13 @@ stages:
           start.sh # 🛠️ Nuevo script de inicio
         TargetFolder: '$(DeploymentPath)'
 
+    # 🛠️ CORRECCIÓN FINAL: Asignar permisos de ejecución al script
+    - script: |
+        echo "Dando permisos de ejecución a start.sh"
+        chmod +x "$(DeploymentPath)/start.sh"
+      displayName: 'Asignar Permisos a start.sh'
+
+
     # --- 4. Publicar artefactos ---
     - task: PublishPipelineArtifact@1 
       displayName: 'Publicar Artefacto de Despliegue'
