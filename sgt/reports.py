@@ -4,7 +4,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from datetime import datetime
 
-# ------------------------- HU-02: Reporte de Abordajes -------------------------
+# ------------------------- HU-02: Reporte de Abordajes Completo -------------------------
 class ReporteAbordajes:
     @staticmethod
     def obtener_abordajes(fecha=None, unidad=None):
@@ -87,7 +87,7 @@ class ReporteAbordajes:
         return nombre_archivo
 
 
-# ------------------------- HU-03: Reporte de Servicios Especiales -------------------------
+# ------------------------- HU-03: Reporte de Servicios Especiales Completo  -------------------------
 class ReporteServiciosEspeciales:
     @staticmethod
     def obtener_servicios(fecha_inicio=None, fecha_fin=None, nombre_servicio=None):
