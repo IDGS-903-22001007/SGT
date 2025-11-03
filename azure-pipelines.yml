@@ -52,7 +52,6 @@ stages:
 
     # ✅ CORRECCIÓN: Crea el directorio de artefactos ANTES de copiar archivos
     - script: |
-        # Crea la carpeta de destino con mkdir (compatible con agentes Linux y Windows)
         # Esto soluciona el error "Not found PathtoPublish"
         mkdir -p "$(DeploymentPath)"
         echo "Directorio de despliegue creado: $(DeploymentPath)"
@@ -70,11 +69,11 @@ stages:
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
-    - task: PublishBuildArtifacts@1
+    - task: PublishPipelineArtifact@1 # 💡 Tarea actualizada a la versión más robusta
       displayName: 'Publicar Artefacto de Despliegue'
       inputs:
-        pathToPublish: '$(DeploymentPath)'
-        artifactName: '$(ArtifactName)'
+        targetPath: '$(DeploymentPath)' # Usa targetPath para la nueva tarea
+        artifact: '$(ArtifactName)'     # Usa artifact para la nueva tarea
 
 
 # =====================================================
@@ -97,7 +96,6 @@ stages:
             displayName: 'Descargar Artefacto de Código Empaquetado'
             inputs:
               artifactName: '$(ArtifactName)'
-              # ✅ Usamos downloadPath en lugar de path para descarga explícita
               downloadPath: '$(Pipeline.Workspace)/$(ArtifactName)'
 
           - task: AzureWebApp@1
