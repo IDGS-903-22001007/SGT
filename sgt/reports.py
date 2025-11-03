@@ -4,7 +4,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from datetime import datetime
 
-# ------------------------- HU-02: Reporte de Abordajes Completo -------------------------
+# ------------------------- HU-02: Reporte de Abordajes Completo Actualizado -------------------------
 class ReporteAbordajes:
     @staticmethod
     def obtener_abordajes(fecha=None, unidad=None):
