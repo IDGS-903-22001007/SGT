@@ -14,7 +14,7 @@ variables:
   ArtifactName: 'sgt-deploy-package'
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
   ServiceConnectionName: 'AZ-Conexion-SGT'
-  AppServiceName: 'sgt-app-integrated-2025-atg7ambqdkbhf0b6'
+  AppServiceName: 'sgt-app-integrated-2025'
 
 # =====================================================
 # 1️⃣ Etapa: CI - Integración Continua (Sin pruebas)
