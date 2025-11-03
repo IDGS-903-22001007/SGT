@@ -1,7 +1,6 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Build/Test) -> CD (Deploy a Azure WebApp)
-# Objetivo: Desplegar login.html servido por Flask
 # =====================================================
 
 trigger:
@@ -13,9 +12,9 @@ pool:
 variables:
   ArtifactName: 'sgt-deploy-package'
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
-  ServiceConnectionName: 'AZ-Conexion-SGT' # 🔑 Nombre de la conexión de servicio en Azure DevOps
-  AppServiceName: 'sgt-app-integrated-2025'  # ✅ Nombre de tu Azure App Service
-  PythonVersion: '3.11' # Versión de Python a usar
+  ServiceConnectionName: 'AZ-Conexion-SGT' # Nombre de la conexión de servicio en Azure DevOps
+  AppServiceName: 'sgt-app-integrated-2025'  # Nombre de tu Azure App Service
+  PythonVersion: '3.11' 
 
 # =====================================================
 # 1️⃣ Etapa: CI - Integración Continua (Pruebas Unitarias)
@@ -41,20 +40,19 @@ stages:
         pip install pytest requests
       displayName: 'Instalar dependencias del proyecto'
 
-    # ✅ CORRECCIÓN CLAVE para el error "ModuleNotFoundError: No module named 'sgt'"
+    # ✅ Tarea Corregida: Solución al ModuleNotFoundError en Windows
     - powershell: |
         Write-Host "Ejecutando pruebas unitarias..."
         
-        # 1. CD a la raíz del repositorio para que pytest encuentre la carpeta 'test'
+        # 1. Aseguramos el directorio de ejecución
         cd "$(Build.SourcesDirectory)"
         
-        # 2. Añadir la raíz del repositorio (el punto '.') al PYTHONPATH. 
-        #    Esto permite que la importación 'from sgt.usuarios_model import...' funcione.
-        $env:PYTHONPATH = ".:$env:PYTHONPATH"
+        # 2. CORRECCIÓN CLAVE: Usamos punto y coma (;) como separador de ruta para Windows.
+        #    Esto permite que Python encuentre el paquete 'sgt' en la raíz.
+        $env:PYTHONPATH = "$(Build.SourcesDirectory);$env:PYTHONPATH" 
         Write-Host "PYTHONPATH establecido en: $env:PYTHONPATH"
 
         # 3. Ejecutar pytest
-        # El comando 'pytest test' busca el módulo 'sgt' usando el nuevo PYTHONPATH
         pytest test --maxfail=1 --disable-warnings -v --junitxml=results.xml
       displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
       
@@ -62,19 +60,19 @@ stages:
       displayName: 'Publicar Resultados de Pruebas Unitarias'
       inputs:
         testResultsFormat: 'JUnit'
-        testResultsFiles: '**/results.xml' # Busca results.xml en cualquier subdirectorio
+        testResultsFiles: '**/results.xml' 
         failTaskOnFailedTests: true
 
     - task: CopyFiles@2
       displayName: 'Copiar Código de Aplicación para Despliegue'
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
-        # ⚠️ Solo copiamos archivos esenciales para la ejecución (sgt, main.py, requisitos)
+        # Se copian solo archivos esenciales para el despliegue
         Contents: |
           sgt/**
           requirements.txt
           app.py 
-          main.py # Asumiendo que tu archivo principal está aquí
+          main.py 
         TargetFolder: '$(DeploymentPath)'
 
     - task: PublishBuildArtifacts@1
@@ -82,6 +80,8 @@ stages:
       inputs:
         pathToPublish: '$(DeploymentPath)'
         artifactName: '$(ArtifactName)'
+
+# ---------------------------------------------------------------------------------------
 
 # =====================================================
 # 2️⃣ Etapa: CD - Despliegue Continuo en Azure
@@ -94,9 +94,9 @@ stages:
   jobs:
   - deployment: DeployToAzure
     displayName: 'Job: Desplegar Flask App en Azure'
-    environment: 'Entorno-Integrado-SGT' # 🌐 Nombre de tu entorno en Azure DevOps
+    environment: 'Entorno-Integrado-SGT' 
     pool:
-      name: 'AgenteLocal' # Usamos el agente local si tiene acceso al servicio de Azure
+      name: 'AgenteLocal' 
     strategy:
       runOnce:
         deploy:
@@ -115,8 +115,9 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              # 🚀 Comando para Gunicorn: Ejecuta la aplicación 'app' dentro del archivo 'main' que está en el paquete 'sgt'
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app' 
+
+# ---------------------------------------------------------------------------------------
 
 # =====================================================
 # 3️⃣ Etapa: Test Funcional Post-Deploy
@@ -141,7 +142,6 @@ stages:
           pip install requests pytest
         displayName: 'Instalar dependencias de prueba funcional'
         
-      # Descargamos el código para acceder al test/test_sample.py
       - task: DownloadPipelineArtifact@2
         displayName: 'Descargar Artefacto para Tests Funcionales'
         inputs:
@@ -150,8 +150,6 @@ stages:
 
       - powershell: |
           Write-Host "Ejecutando pruebas funcionales en la URL desplegada..."
-          # Nos movemos donde están los tests (asumiendo que los tests están en la raíz del artefacto)
           cd "$(Pipeline.Workspace)/FunctionalTests"
-          # Ejecutar los tests (necesitarás el módulo 'requests' y la URL de la App Service)
           pytest test/test_sample.py 
         displayName: 'Ejecutar Pruebas Funcionales Post-Despliegue'
