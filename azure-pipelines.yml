@@ -50,7 +50,7 @@ stages:
         pip install -r requirements.txt || (echo "Reintentando instalación..." && pip install -r requirements.txt)
       displayName: 'Instalar Flask y dependencias'
 
-    # ✅ CORRECCIÓN: Crea el directorio de artefactos ANTES de copiar archivos
+    # ✅ Crea el directorio de artefactos ANTES de copiar archivos
     - script: |
         # Esto soluciona el error "Not found PathtoPublish"
         mkdir -p "$(DeploymentPath)"
@@ -69,11 +69,11 @@ stages:
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
-    - task: PublishPipelineArtifact@1 # 💡 Tarea actualizada a la versión más robusta
+    - task: PublishPipelineArtifact@1 
       displayName: 'Publicar Artefacto de Despliegue'
       inputs:
-        targetPath: '$(DeploymentPath)' # Usa targetPath para la nueva tarea
-        artifact: '$(ArtifactName)'     # Usa artifact para la nueva tarea
+        targetPath: '$(DeploymentPath)' 
+        artifact: '$(ArtifactName)'     
 
 
 # =====================================================
@@ -105,7 +105,9 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
+              # 🛠️ CORRECCIÓN DE PYODBC: Instala el controlador ODBC de Linux (unixodbc-dev)
+              # antes de iniciar Gunicorn. Esto resuelve el ModuleNotFoundError.
+              startupCommand: 'apt-get update && apt-get install -y unixodbc-dev && gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
 
 # =====================================================
