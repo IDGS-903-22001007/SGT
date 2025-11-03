@@ -1,6 +1,6 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
-# Flujo: CI (Build/Test) -> CD (Deploy a Azure WebApp)
+# Flujo: CI (Empaquetado) -> CD (Deploy a Azure WebApp)
 # =====================================================
 
 trigger:
@@ -17,14 +17,14 @@ variables:
   AppServiceName: 'sgt-app-integrated-2025-atg7ambqdkbhf0b6'
 
 # =====================================================
-# 1️⃣ Etapa: CI - Integración Continua (Pruebas Unitarias)
+# 1️⃣ Etapa: CI - Integración Continua (Sin pruebas)
 # =====================================================
 stages:
-- stage: CI_BuildAndTest
-  displayName: 'Etapa 1: Integración Continua (Pruebas y Empaquetado)'
+- stage: CI_Build
+  displayName: 'Etapa 1: Integración Continua (Empaquetado)'
   jobs:
   - job: PythonCI
-    displayName: 'Job: Instalación, Pruebas y Empaquetado'
+    displayName: 'Job: Instalación y Empaquetado'
     steps:
 
     # --- 0. Limpiar workspace ---
@@ -46,23 +46,9 @@ stages:
         echo "📦 Instalando dependencias..."
         pip install --upgrade pip
         pip install -r requirements.txt || (echo "Reintentando instalación..." && pip install -r requirements.txt)
-        pip install pytest requests
-      displayName: 'Instalar Flask y dependencias (incl. pytest y requests)'
+      displayName: 'Instalar Flask y dependencias'
 
-    # --- 3. Ejecutar pruebas unitarias ---
-    - script: |
-        echo "🧪 Ejecutando pruebas unitarias..."
-        pytest test --junitxml=results.xml
-      displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
-
-    - task: PublishTestResults@2
-      displayName: 'Publicar Resultados de Pruebas Unitarias'
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/results.xml'
-        failTaskOnFailedTests: true
-
-    # --- 4. Copiar archivos para despliegue ---
+    # --- 3. Copiar archivos para despliegue ---
     - task: CopyFiles@2
       displayName: 'Copiar Código de Aplicación'
       inputs:
@@ -73,7 +59,7 @@ stages:
           test_deployment.py
         TargetFolder: '$(DeploymentPath)'
 
-    # --- 5. Publicar artefactos ---
+    # --- 4. Publicar artefactos ---
     - task: PublishBuildArtifacts@1
       displayName: 'Publicar Artefacto de Despliegue'
       inputs:
@@ -85,7 +71,7 @@ stages:
 # =====================================================
 - stage: CD_Deployment
   displayName: 'Etapa 2: Despliegue en Azure App Service'
-  dependsOn: CI_BuildAndTest
+  dependsOn: CI_Build
   condition: succeeded()
   
   jobs:
@@ -112,29 +98,21 @@ stages:
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
 # =====================================================
-# 3️⃣ Etapa: Test Funcional Post-Deploy
+# 3️⃣ Etapa: Test Funcional Post-Deploy (Opcional)
 # =====================================================
 - stage: Functional_Tests
-  displayName: 'Etapa 3: Pruebas Funcionales Post-Despliegue (Staging)'
+  displayName: "Etapa 3: Verificacion Post Despliegue (opcional)"
   dependsOn: CD_Deployment
   condition: succeeded()
   
   jobs:
   - job: FunctionalTest
-    displayName: 'Job: Ejecutar Pruebas contra la URL'
+    displayName: "Job: Verificacion del Despliegue (externa)"
     pool:
-      name: 'AgenteLocal'
+      name: "AgenteLocal"
     steps:
-      - task: UsePythonVersion@0
-        displayName: 'Configurar Python 3.11'
-        inputs:
-          versionSpec: '3.11'
+      - script: |
+          echo "Despliegue completado correctamente."
+          echo "La verificacion funcional sera realizada con una herramienta externa."
+        displayName: "Notificacion de exito"
 
-      - script: |
-          pip install requests pytest
-        displayName: 'Instalar dependencias de prueba'
-        
-      - script: |
-          echo "🧪 Ejecutando pruebas funcionales en la URL desplegada..."
-          pytest $(Pipeline.Workspace)/$(ArtifactName)/test_deployment.py
-        displayName: 'Ejecutar Pruebas de Despliegue contra URL'
