@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 border border-gray-200 mt-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Reporte de Abordajes por Servicio</h1>
+
+    <!-- Formulario de filtros -->
+    <form method="POST" class="mb-6 flex flex-wrap gap-2">
+        <input type="date" name="fecha" value="{{ fecha }}" class="p-2 border rounded w-full sm:w-auto">
+        <input type="text" name="unidad" value="{{ unidad }}" placeholder="Unidad" class="p-2 border rounded w-full sm:w-auto">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Filtrar
+        </button>
+    </form>
+
+    <!-- Botones de exportación -->
+    <div class="mb-4 flex flex-wrap gap-2">
+        <form method="POST" action="{{ url_for('reporte_abordajes_excel') }}">
+            <input type="hidden" name="fecha" value="{{ fecha }}">
+            <input type="hidden" name="unidad" value="{{ unidad }}">
+            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                Exportar Excel
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('reporte_abordajes_pdf') }}">
+            <input type="hidden" name="fecha" value="{{ fecha }}">
+            <input type="hidden" name="unidad" value="{{ unidad }}">
+            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                Exportar PDF
+            </button>
+        </form>
+    </div>
+
+    <!-- Tabla de resultados -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white border rounded-lg shadow-sm">
+            <thead>
+                <tr class="bg-gray-200 text-gray-800 text-left">
+                    <th class="p-3 border">Servicio</th>
+                    <th class="p-3 border">Unidad</th>
+                    <th class="p-3 border">Fecha</th>
+                    <th class="p-3 border">Usuarios Abordados</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in datos %}
+                <tr class="border-t hover:bg-gray-50 transition">
+                    <td class="p-3 border">{{ fila.servicio }}</td>
+                    <td class="p-3 border">{{ fila.unidad }}</td>
+                    <td class="p-3 border">{{ fila.fecha }}</td>
+                    <td class="p-3 border text-center">{{ fila.usuarios_abordados }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="p-4 text-center text-gray-500">
+                        No hay registros disponibles
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
