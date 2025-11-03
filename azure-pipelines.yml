@@ -8,7 +8,7 @@ trigger:
   - main
 
 pool:
-  name: "AgenteLocal" # 👷‍♂️ Asegúrate que exista este agente local (Windows)
+  name: "AgenteLocal" # 👷‍♂ Asegúrate que exista este agente local (Windows)
 
 variables:
   AppSourceDir: "$(Build.SourcesDirectory)/sgt"
@@ -40,7 +40,11 @@ stages:
               pip install pytest requests
             displayName: "Instalar dependencias del proyecto"
 
+          # ✅ Pruebas unitarias con PowerShell (compatible en Windows)
           - powershell: |
+              Write-Host "Ejecutando pruebas unitarias..."
+              $env:PYTHONPATH = "$(Build.SourcesDirectory)"
+              Write-Host "PYTHONPATH=$env:PYTHONPATH"
               Write-Host "Ejecutando pruebas unitarias..."
               pytest test --junitxml=results.xml
             displayName: "Ejecutar Pruebas Unitarias (FAIL ON ERROR)"
@@ -49,7 +53,7 @@ stages:
             displayName: "Publicar Resultados de Pruebas Unitarias"
             inputs:
               testResultsFormat: "JUnit"
-              testResultsFiles: "**/results.xml"
+              testResultsFiles: "/results.xml"
               failTaskOnFailedTests: true
 
           - task: CopyFiles@2
