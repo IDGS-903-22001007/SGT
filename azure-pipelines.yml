@@ -44,10 +44,13 @@ stages:
     # ✅ Pruebas unitarias con PowerShell (compatible en Windows)
     - powershell: |
         Write-Host "Ejecutando pruebas unitarias..."
-        cd "$(Build.SourcesDirectory)/SGT"
-        $env:PYTHONPATH = "$(Build.SourcesDirectory)/SGT"
-        Write-Host "PYTHONPATH = $env:PYTHONPATH"
-        pytest test --maxfail=1 --disable-warnings -q --junitxml=$(Build.SourcesDirectory)/results.xml
+        # Añadir la raíz del repositorio al PYTHONPATH
+        $env:PYTHONPATH = "$(Build.SourcesDirectory)"
+        Write-Host "PYTHONPATH establecido en: $env:PYTHONPATH"
+
+        # Ejecutar pytest desde la raíz
+        cd "$(Build.SourcesDirectory)"
+        pytest test --maxfail=1 --disable-warnings -v --junitxml=results.xml
       displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
 
     - task: PublishTestResults@2
