@@ -1,7 +1,7 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Empaquetado) -> CD (Deploy a Azure WebApp)
-# Solución FINAL para pyodbc en Linux
+# Solución FINAL para pyodbc y errores de copia de archivos
 # =====================================================
 
 trigger:
@@ -40,9 +40,9 @@ stages:
 
     # --- 1. Configurar versión de Python ---
     - task: UsePythonVersion@0
-      displayName: 'Configurar Python $(PythonVersion)' # ✅ Se usa la variable aquí
+      displayName: 'Configurar Python $(PythonVersion)'
       inputs:
-        versionSpec: '$(PythonVersion)' # ✅ Se usa la variable aquí
+        versionSpec: '$(PythonVersion)'
 
     # --- 2. Instalar dependencias ---
     - script: |
@@ -69,10 +69,6 @@ stages:
           templates/** # CRÍTICO: Templates en la raíz
           start.sh # 🛠️ Nuevo script de inicio
         TargetFolder: '$(DeploymentPath)'
-
-    # 🛑 ELIMINADA: La tarea de permisos falló por falta de Bash en el agente local. 
-    # Confiamos en que Azure ejecute 'bash start.sh' directamente.
-    
 
     # --- 4. Publicar artefactos ---
     - task: PublishPipelineArtifact@1 
@@ -110,9 +106,10 @@ stages:
               azureSubscription: '$(ServiceConnectionName)'
               appName: '$(AppServiceName)'
               appType: webApp
-              package: '$(Pipeline.Workspace)/$(ArtifactName)/'
+              # 🛑 CORRECCIÓN FINAL DE COPIA: Forzar la raíz del artefacto como paquete
+              package: '$(Pipeline.Workspace)/$(ArtifactName)' 
               # 🛠️ Ejecuta el script de shell que instala el driver ODBC y luego Gunicorn.
-              startupCommand: 'bash start.sh'
+              startupCommand: 'start.sh'
 
 
 # =====================================================
