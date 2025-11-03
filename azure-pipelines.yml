@@ -47,14 +47,14 @@ stages:
       inputs:
         versionSpec: '3.11'
 
-       # --- 2. Instalar dependencias (Separado para aislar errores) ---
+      # --- 2. Instalar dependencias (Separado para aislar errores) ---
     - script: |
         pip install -r requirements.txt
       displayName: 'Instalar dependencias del proyecto (Flask, SQLAlchemy, etc.)'
 
     # --- 2b. Instalar herramientas de CI/CD ---
     - script: |
-        pip install pytest requests # Instalar 'requests' para la prueba funcional post-deploy
+        pip install pytest requests
       displayName: 'Instalar herramientas de Pruebas (pytest y requests)'
 
 
