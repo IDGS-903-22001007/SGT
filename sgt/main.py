@@ -43,7 +43,7 @@ def logout():
     flash("Sesión cerrada correctamente", "info")
     return redirect(url_for('login'))
 
-# ---------------- REPORTE DE ABORDAJES ----------------
+# ---------------- REPORTE DE ABORDAJES COMPLETO ----------------
 @app.route('/reporte_abordajes', methods=['GET', 'POST'])
 def reporte_abordajes():
     fecha = request.form.get('fecha') if request.method == 'POST' else None
