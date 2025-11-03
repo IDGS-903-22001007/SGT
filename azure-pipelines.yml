@@ -19,7 +19,7 @@ variables:
 
 
 # =====================================================
-# 1️⃣ Etapa: CI - Integración Continua (Sin pruebas)
+# 1️⃣ Etapa: CI - Integración Continua (Empaquetado)
 # =====================================================
 stages:
 - stage: CI_Build
@@ -98,7 +98,8 @@ stages:
             displayName: 'Descargar Artefacto de Código Empaquetado'
             inputs:
               artifactName: '$(ArtifactName)'
-              path: '$(Pipeline.Workspace)/$(ArtifactName)'
+              # ✅ Usamos downloadPath en lugar de path para descarga explícita
+              downloadPath: '$(Pipeline.Workspace)/$(ArtifactName)'
 
           - task: AzureWebApp@1
             displayName: 'Desplegar Flask App a Azure App Service'
