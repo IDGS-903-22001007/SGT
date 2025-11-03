@@ -8,14 +8,14 @@ trigger:
 - main
 
 pool:
-  name: 'AgenteLocal'  # 👷‍♂ Asegúrate que exista este agente local (Windows)
+  name: 'AgenteLocal'  # 👷‍♂️ Asegúrate que exista este agente local (Windows)
 
 variables:
-  AppSourceDir: '$(Build.SourcesDirectory)/sgt'
   ArtifactName: 'sgt-deploy-package'
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
-  ServiceConnectionName: 'AZ-Conexion-SGT'
-  AppServiceName: 'sgt-app-integrated-2025'  # ✅ Nombre corregido
+  ServiceConnectionName: 'AZ-Conexion-SGT' # 🔑 Nombre de la conexión de servicio en Azure DevOps
+  AppServiceName: 'sgt-app-integrated-2025'  # ✅ Nombre de tu Azure App Service
+  PythonVersion: '3.11' # Versión de Python a usar
 
 # =====================================================
 # 1️⃣ Etapa: CI - Integración Continua (Pruebas Unitarias)
@@ -31,9 +31,9 @@ stages:
     steps:
 
     - task: UsePythonVersion@0
-      displayName: 'Configurar Python 3.11'
+      displayName: 'Configurar Python $(PythonVersion)'
       inputs:
-        versionSpec: '3.11'
+        versionSpec: '$(PythonVersion)'
 
     - script: |
         python -m pip install --upgrade pip
@@ -41,33 +41,40 @@ stages:
         pip install pytest requests
       displayName: 'Instalar dependencias del proyecto'
 
-    # ✅ Pruebas unitarias con PowerShell (compatible en Windows)
+    # ✅ CORRECCIÓN CLAVE para el error "ModuleNotFoundError: No module named 'sgt'"
     - powershell: |
         Write-Host "Ejecutando pruebas unitarias..."
-        # Añadir la raíz del repositorio al PYTHONPATH
-        $env:PYTHONPATH = "$(Build.SourcesDirectory)"
+        
+        # 1. CD a la raíz del repositorio para que pytest encuentre la carpeta 'test'
+        cd "$(Build.SourcesDirectory)"
+        
+        # 2. Añadir la raíz del repositorio (el punto '.') al PYTHONPATH. 
+        #    Esto permite que la importación 'from sgt.usuarios_model import...' funcione.
+        $env:PYTHONPATH = ".:$env:PYTHONPATH"
         Write-Host "PYTHONPATH establecido en: $env:PYTHONPATH"
 
-        # Ejecutar pytest desde la raíz
-        cd "$(Build.SourcesDirectory)"
+        # 3. Ejecutar pytest
+        # El comando 'pytest test' busca el módulo 'sgt' usando el nuevo PYTHONPATH
         pytest test --maxfail=1 --disable-warnings -v --junitxml=results.xml
       displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
-
+      
     - task: PublishTestResults@2
       displayName: 'Publicar Resultados de Pruebas Unitarias'
       inputs:
         testResultsFormat: 'JUnit'
-        testResultsFiles: '/results.xml'
+        testResultsFiles: '**/results.xml' # Busca results.xml en cualquier subdirectorio
         failTaskOnFailedTests: true
 
     - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación'
+      displayName: 'Copiar Código de Aplicación para Despliegue'
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
+        # ⚠️ Solo copiamos archivos esenciales para la ejecución (sgt, main.py, requisitos)
         Contents: |
           sgt/**
           requirements.txt
-          test/**
+          app.py 
+          main.py # Asumiendo que tu archivo principal está aquí
         TargetFolder: '$(DeploymentPath)'
 
     - task: PublishBuildArtifacts@1
@@ -87,9 +94,9 @@ stages:
   jobs:
   - deployment: DeployToAzure
     displayName: 'Job: Desplegar Flask App en Azure'
-    environment: 'Entorno-Integrado-SGT'
+    environment: 'Entorno-Integrado-SGT' # 🌐 Nombre de tu entorno en Azure DevOps
     pool:
-      name: 'AgenteLocal'
+      name: 'AgenteLocal' # Usamos el agente local si tiene acceso al servicio de Azure
     strategy:
       runOnce:
         deploy:
@@ -108,7 +115,8 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
+              # 🚀 Comando para Gunicorn: Ejecuta la aplicación 'app' dentro del archivo 'main' que está en el paquete 'sgt'
+              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app' 
 
 # =====================================================
 # 3️⃣ Etapa: Test Funcional Post-Deploy
@@ -125,15 +133,25 @@ stages:
       name: 'AgenteLocal'
     steps:
       - task: UsePythonVersion@0
-        displayName: 'Configurar Python 3.11'
+        displayName: 'Configurar Python $(PythonVersion)'
         inputs:
-          versionSpec: '3.11'
+          versionSpec: '$(PythonVersion)'
 
       - script: |
           pip install requests pytest
-        displayName: 'Instalar dependencias de prueba'
+        displayName: 'Instalar dependencias de prueba funcional'
+        
+      # Descargamos el código para acceder al test/test_sample.py
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Descargar Artefacto para Tests Funcionales'
+        inputs:
+          artifactName: '$(ArtifactName)'
+          path: '$(Pipeline.Workspace)/FunctionalTests' 
 
       - powershell: |
           Write-Host "Ejecutando pruebas funcionales en la URL desplegada..."
-          pytest test/test_sample.py
+          # Nos movemos donde están los tests (asumiendo que los tests están en la raíz del artefacto)
+          cd "$(Pipeline.Workspace)/FunctionalTests"
+          # Ejecutar los tests (necesitarás el módulo 'requests' y la URL de la App Service)
+          pytest test/test_sample.py 
         displayName: 'Ejecutar Pruebas Funcionales Post-Despliegue'
