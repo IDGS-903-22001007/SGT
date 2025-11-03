@@ -1,23 +1,24 @@
 # =====================================================
 # 📦 Pipeline CI/CD para App Flask (SGT)
 # Flujo: CI (Empaquetado) -> CD (Deploy a Azure WebApp)
+# Objetivo: Desplegar la aplicación Flask
 # =====================================================
 
 trigger:
 - main
 
 pool:
-  name: 'AgenteLocal'
+  name: 'AgenteLocal' # 👷‍♂️ Usando tu agente local
 
 variables:
-  AppSourceDir: '$(Build.SourcesDirectory)/sgt'
   ArtifactName: 'sgt-deploy-package'
   DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
   ServiceConnectionName: 'AZ-Conexion-SGT'
   AppServiceName: 'sgt-app-integrated-2025'
+  PythonVersion: '3.11' 
 
 # =====================================================
-# 1️⃣ Etapa: CI - Integración Continua (Sin pruebas)
+# 1️⃣ Etapa: CI - Integración Continua (Empaquetado)
 # =====================================================
 stages:
 - stage: CI_Build
@@ -31,32 +32,34 @@ stages:
     - script: |
         echo "🧹 Limpiando directorio de trabajo previo..."
         git clean -xfd
-        echo "Verificando contenido actual de requirements.txt:"
-        type requirements.txt
-      displayName: 'Limpiar workspace y mostrar requirements.txt'
+      displayName: 'Limpiar workspace'
 
     # --- 1. Configurar versión de Python ---
     - task: UsePythonVersion@0
-      displayName: 'Configurar Python 3.11'
+      displayName: 'Configurar Python $(PythonVersion)'
       inputs:
-        versionSpec: '3.11'
+        versionSpec: '$(PythonVersion)'
 
     # --- 2. Instalar dependencias ---
     - script: |
         echo "📦 Instalando dependencias..."
         pip install --upgrade pip
+        # Instala dependencias. Se usa un reintento por si falla la primera vez (común en agentes locales)
         pip install -r requirements.txt || (echo "Reintentando instalación..." && pip install -r requirements.txt)
       displayName: 'Instalar Flask y dependencias'
 
     # --- 3. Copiar archivos para despliegue ---
     - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación'
+      displayName: 'Copiar Código de Aplicación (sgt, templates, app.py)'
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
         Contents: |
-          sgt/**
-          requirements.txt
-          test_deployment.py
+          sgt/** # Tu código fuente y modelos
+          requirements.txt     # Para la instalación en Azure
+          app.py               # Archivo Python en la raíz (si lo usas como entry point)
+          templates/** # ✅ CRÍTICO: La carpeta de templates que moviste a la raíz
+          # Si tienes main.py en la raíz, agrégalo aquí también:
+          # main.py
         TargetFolder: '$(DeploymentPath)'
 
     # --- 4. Publicar artefactos ---
@@ -95,6 +98,8 @@ stages:
               appName: '$(AppServiceName)'
               appType: webApp
               package: '$(Pipeline.Workspace)/$(ArtifactName)/'
+              # 🚀 Comando de Gunicorn: Asume que la aplicación se ejecuta desde la raíz 
+              # y que el archivo de inicio es 'main.py' dentro del paquete 'sgt'.
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
 # =====================================================
@@ -115,4 +120,3 @@ stages:
           echo "Despliegue completado correctamente."
           echo "La verificacion funcional sera realizada con una herramienta externa."
         displayName: "Notificacion de exito"
-
