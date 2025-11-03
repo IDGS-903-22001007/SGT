@@ -1,6 +1,29 @@
+# --- Framework principal ---
 flask==2.3.3
+
+# --- Base de datos ---
 sqlalchemy==2.0.21
-requests==2.31.0
+pyodbc==5.1.0
+pymysql==1.1.0
+
+# --- Servidor y despliegue ---
 gunicorn==22.0.0
+
+# --- Utilidades y dependencias del sistema ---
+requests==2.31.0
+python-dotenv==1.0.1
+
+# --- Pruebas unitarias y funcionales ---
+pytest==8.3.2
+pytest-html==4.1.1
+pytest-cov==5.0.0
+
+# --- Generación de reportes y PDF ---
+reportlab==4.2.2
+openpyxl==3.1.5
+pandas==2.2.3
+
+# --- Manejo de fechas y utilidades ---
+python-dateutil==2.9.0.post0
 
 
