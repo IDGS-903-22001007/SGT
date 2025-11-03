@@ -71,7 +71,8 @@ stages:
         TargetFolder: '$(DeploymentPath)'
 
     # 🛠️ CORRECCIÓN FINAL: Asignar permisos de ejecución al script
-    - script: |
+    # Se usa la tarea 'bash' para forzar el uso de un intérprete compatible con 'chmod'.
+    - bash: |
         echo "Dando permisos de ejecución a start.sh"
         chmod +x "$(DeploymentPath)/start.sh"
       displayName: 'Asignar Permisos a start.sh'
