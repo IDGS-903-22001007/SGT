@@ -10,6 +10,7 @@
 # ┃ ┣ 📂 templates/login.html
 # ┃ ┗ 📂 static/ (opcional)
 # ┣ 📜 requirements.txt
+# ┣ 📜 test_deployment.py <--- Archivo de prueba funcional añadido
 # =====================================================
 
 trigger:
@@ -27,10 +28,10 @@ variables:
   
   # ⚙️ Variables de Azure App Service
   ServiceConnectionName: 'AZ-Conexion-SGT'
-  AppServiceName: 'sgt-app-integrated-2025'
+  AppServiceName: 'sgt-app-integrated-2025-atg7ambqdkbhf0b6' # Usamos el nombre de la app (sin el .azurewebsites.net)
 
 # =====================================================
-# 1️⃣ Etapa: CI - Integración Continua
+# 1️⃣ Etapa: CI - Integración Continua (Pruebas Unitarias)
 # =====================================================
 stages:
 - stage: CI_BuildAndTest
@@ -49,30 +50,33 @@ stages:
     # --- 2. Instalar dependencias ---
     - script: |
         pip install -r requirements.txt
-      displayName: 'Instalar Flask, Gunicorn y dependencias'
+        pip install pytest requests # Instalar 'requests' para la prueba funcional post-deploy
+      displayName: 'Instalar Flask y dependencias (incl. pytest y requests)'
 
-    # --- 3. Ejecutar pruebas (opcional si tienes carpeta /test) ---
+    # --- 3. Ejecutar pruebas unitarias (Actividad 14: Logs) ---
     - script: |
-        echo "Ejecutando pruebas automáticas..."
-        pytest test --junitxml=results.xml || echo "Sin pruebas definidas, continuando..."
-      displayName: 'Ejecutar Pruebas Unitarias'
-      continueOnError: true
+        echo "Ejecutando pruebas unitarias de CI..."
+        pytest test --junitxml=results.xml
+      displayName: 'Ejecutar Pruebas Unitarias (FAIL ON ERROR)'
+      # Se asume que el comando 'pytest' fallará si las pruebas unitarias fallan,
+      # lo cual detendrá el pipeline.
 
     - task: PublishTestResults@2
-      displayName: 'Publicar Resultados de Pruebas'
+      displayName: 'Publicar Resultados de Pruebas Unitarias'
       inputs:
         testResultsFormat: 'JUnit'
         testResultsFiles: '**/results.xml'
-        failTaskOnFailedTests: false
+        failTaskOnFailedTests: true # DEBE SER TRUE para un CI riguroso
 
     # --- 4. Copiar archivos para despliegue ---
     - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación (sgt/)'
+      displayName: 'Copiar Código de Aplicación'
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
         Contents: |
           sgt/**
           requirements.txt
+          test_deployment.py # Incluir el script de prueba funcional
         TargetFolder: '$(DeploymentPath)'
 
     # --- 5. Publicar artefactos ---
@@ -106,21 +110,42 @@ stages:
               artifactName: '$(ArtifactName)'
               path: '$(Pipeline.Workspace)/$(ArtifactName)'
 
-                   # --- 2. Desplegar a Azure ---
+          # --- 2. Desplegar a Azure ---
           - task: AzureWebApp@1
             displayName: 'Desplegar Flask App a Azure App Service'
             inputs:
               azureSubscription: '$(ServiceConnectionName)'
               appName: '$(AppServiceName)'
               appType: webApp
-              package: '$(Pipeline.Workspace)/$(ArtifactName)'
-
-              # 🔥 Comando de arranque (Flask via Gunicorn)
+              package: '$(Pipeline.Workspace)/$(ArtifactName)/' # Asegúrate de que apunte a la carpeta
               startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
 
-          # --- 3. Mensaje final ---
-          - script: |
-              echo "✅ Despliegue completado correctamente."
-              echo "App ejecutándose en: https://$(AppServiceName).azurewebsites.net"
-              echo "Actividad 15: Evidencia de HTML desplegado con Flask."
-            displayName: 'Mensaje de Éxito y URL Final'
+# =====================================================
+# 3️⃣ Etapa: Test Funcional Post-Deploy (Staging/Metricas)
+# =====================================================
+- stage: Functional_Tests
+  displayName: 'Etapa 3: Pruebas Funcionales Post-Despliegue (Staging)'
+  dependsOn: CD_Deployment
+  condition: succeeded()
+  
+  jobs:
+  - job: FunctionalTest
+    displayName: 'Job: Ejecutar Pruebas contra la URL'
+    pool:
+      name: 'AgenteLocal' # Usar un agente para ejecutar la prueba
+    steps:
+      - task: UsePythonVersion@0
+        displayName: 'Configurar Python 3.11'
+        inputs:
+          versionSpec: '3.11'
+          
+      - script: |
+          pip install requests pytest
+        displayName: 'Instalar dependencias de prueba'
+        
+      # --- 1. Ejecutar el script de prueba funcional (Actividad 14: Métricas) ---
+      - script: |
+          echo "Ejecutando pruebas funcionales en la URL desplegada..."
+          # Usamos 'pytest' para ejecutar el script que probará la URL
+          pytest $(Pipeline.Workspace)/$(ArtifactName)/test_deployment.py
+        displayName: 'Ejecutar Pruebas de Despliegue contra URL'
