@@ -1,93 +1,89 @@
 # =====================================================
-# 📦 Pipeline CI/CD para App Flask (SGT)
-# Flujo simplificado: CI (Build) -> CD (Deploy a Azure WebApp)
+# 📦 Pipeline CI/CD simplificado para App Flask (SGT)
+# Flujo: Build -> Deploy a Azure WebApp
 # =====================================================
 
 trigger:
-- main
+  - main
 
 pool:
-  name: 'AgenteLocal'  # 👷‍♂️ Asegúrate que exista este agente local (Windows)
+  name: "AgenteLocal" # 👷‍♂️ Asegúrate que exista este agente local (Windows)
 
 variables:
-  ArtifactName: 'sgt-deploy-package'
-  DeploymentPath: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
-  ServiceConnectionName: 'AZ-Conexion-SGT' # Nombre de la conexión de servicio en Azure DevOps
-  AppServiceName: 'sgt-app-integrated-2025'  # Nombre de tu Azure App Service
-  PythonVersion: '3.11'
+  ArtifactName: "sgt-deploy-package"
+  DeploymentPath: "$(Build.ArtifactStagingDirectory)/$(ArtifactName)"
+  ServiceConnectionName: "AZ-Conexion-SGT"
+  AppServiceName: "sgt-app-integrated-2025"
+  PythonVersion: "3.11"
 
 # =====================================================
-# 1️⃣ Etapa: CI - Empaquetado del Proyecto
+# 1️⃣ Etapa: Build y Empaquetado
 # =====================================================
 stages:
-- stage: CI_Build
-  displayName: 'Etapa 1: Empaquetado del Proyecto'
-  jobs:
-  - job: BuildApp
-    displayName: 'Job: Instalación y empaquetado'
-    pool:
-      name: 'AgenteLocal'
-    steps:
-
-    - task: UsePythonVersion@0
-      displayName: 'Configurar Python $(PythonVersion)'
-      inputs:
-        versionSpec: '$(PythonVersion)'
-
-    - script: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-      displayName: 'Instalar dependencias del proyecto'
-
-    - task: CopyFiles@2
-      displayName: 'Copiar Código de Aplicación para Despliegue'
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)'
-        # Archivos esenciales para el despliegue
-        Contents: |
-          sgt/**
-          templates/**
-          requirements.txt
-          app.py
-          main.py
-        TargetFolder: '$(DeploymentPath)'
-
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publicar Artefacto de Despliegue'
-      inputs:
-        pathToPublish: '$(DeploymentPath)'
-        artifactName: '$(ArtifactName)'
-
-# =====================================================
-# 2️⃣ Etapa: CD - Despliegue en Azure App Service
-# =====================================================
-- stage: CD_Deployment
-  displayName: 'Etapa 2: Despliegue en Azure App Service'
-  dependsOn: CI_Build
-  condition: succeeded()
-
-  jobs:
-  - deployment: DeployToAzure
-    displayName: 'Job: Desplegar Flask App en Azure'
-    environment: 'Entorno-Integrado-SGT'
-    pool:
-      name: 'AgenteLocal'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar Artefacto de Código Empaquetado'
+  - stage: Build_Package
+    displayName: "Etapa 1: Empaquetado del Proyecto Flask"
+    jobs:
+      - job: PackageJob
+        displayName: "Job: Preparar Artefacto de Despliegue"
+        pool:
+          name: "AgenteLocal"
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Configurar Python $(PythonVersion)"
             inputs:
-              artifactName: '$(ArtifactName)'
-              path: '$(Pipeline.Workspace)/$(ArtifactName)'
+              versionSpec: "$(PythonVersion)"
 
-          - task: AzureWebApp@1
-            displayName: 'Desplegar Flask App a Azure App Service'
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+            displayName: "Instalar dependencias del proyecto"
+
+          - task: CopyFiles@2
+            displayName: "Copiar Archivos del Proyecto para Empaquetado"
             inputs:
-              azureSubscription: '$(ServiceConnectionName)'
-              appName: '$(AppServiceName)'
-              appType: webApp
-              package: '$(Pipeline.Workspace)/$(ArtifactName)/'
-              startupCommand: 'gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app'
+              SourceFolder: "$(Build.SourcesDirectory)"
+              Contents: |
+                sgt/**
+                requirements.txt
+                app.py
+                main.py
+              TargetFolder: "$(DeploymentPath)"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publicar Artefacto para Despliegue"
+            inputs:
+              pathToPublish: "$(DeploymentPath)"
+              artifactName: "$(ArtifactName)"
+
+  # =====================================================
+  # 2️⃣ Etapa: Despliegue Continuo (CD)
+  # =====================================================
+  - stage: CD_Deployment
+    displayName: "Etapa 2: Despliegue en Azure App Service"
+    dependsOn: Build_Package
+    condition: succeeded()
+
+    jobs:
+      - deployment: DeployToAzure
+        displayName: "Job: Desplegar App Flask en Azure"
+        environment: "Entorno-Integrado-SGT"
+        pool:
+          name: "AgenteLocal"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadPipelineArtifact@2
+                  displayName: "Descargar Artefacto del Build"
+                  inputs:
+                    artifactName: "$(ArtifactName)"
+                    path: "$(Pipeline.Workspace)/$(ArtifactName)"
+
+                - task: AzureWebApp@1
+                  displayName: "Desplegar Flask App a Azure App Service"
+                  inputs:
+                    azureSubscription: "$(ServiceConnectionName)"
+                    appName: "$(AppServiceName)"
+                    appType: webApp
+                    package: "$(Pipeline.Workspace)/$(ArtifactName)/"
+                    startupCommand: "gunicorn --bind=0.0.0.0 --workers=4 --timeout=90 sgt.main:app"
